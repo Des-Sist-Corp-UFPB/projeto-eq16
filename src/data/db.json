@@ -1,4 +1,14 @@
 {
-  "users": {},
+  "users": {
+    "victorhugosalviano@gmail.com": {
+      "id": "u_dvh9v534l",
+      "name": "victorhugosalviano",
+      "email": "victorhugosalviano@gmail.com",
+      "role": "USER",
+      "houseId": null,
+      "passwordHash": "7e107aa552f9321ff57d13c15869f3e1fcfc350a9bb57f0952c0cf624b56eb06",
+      "sessionToken": "a979973f99842d0c854917b942713f0950a3a945f8ce597f2614f7a91c6d4bfd"
+    }
+  },
   "houses": {}
 }

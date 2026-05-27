@@ -1,61 +1,48 @@
 # =============================================================================
-# Dockerfile de PRODUÇÃO — Multi-stage build
+# Dockerfile de PRODUÇÃO — Next.js (Node.js) Multi-stage build
 # =============================================================================
-# Estágio 1 (builder): compila o projeto com Maven e gera o JAR.
-# Estágio 2 (runtime): imagem mínima com apenas o JRE, sem ferramentas de build.
-#
-# Vantagens do multi-stage:
-#   - Imagem final muito menor (sem Maven, sem fontes Java, sem classes temp.)
-#   - Superfície de ataque reduzida (menos binários = menos vulnerabilidades)
-#   - Separação entre ambiente de build e runtime
-#
-# Como construir:
-#   docker build -f docker/Dockerfile -t mercado:latest .
-# =============================================================================
+# Usa imagens baseadas em Alpine para garantir tamanho reduzido e segurança.
+# Utiliza a funcionalidade de "standalone" do Next.js para copiar apenas o
+# necessário para a execução, sem carregar ferramentas de build ou fontes.
 
-# ---- Estágio 1: Build -------------------------------------------------------
-FROM maven:3.9.9-eclipse-temurin-21 AS builder
+# ---- Estágio 1: Dependências ------------------------------------------------
+FROM node:20-alpine AS deps
+RUN apk add --no-cache libc6-compat
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci
 
-WORKDIR /build
+# ---- Estágio 2: Build -------------------------------------------------------
+FROM node:20-alpine AS builder
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+# Desabilitar telemetria durante o build
+ENV NEXT_TELEMETRY_DISABLED=1
+RUN npm run build
 
-# Copiar pom.xml primeiro para cache de dependências
-COPY pom.xml .
-RUN mvn dependency:go-offline -B -q
-
-# Copiar código-fonte e compilar
-COPY src ./src
-RUN mvn clean package -DskipTests -B -q
-
-# ---- Estágio 2: Runtime -----------------------------------------------------
-FROM eclipse-temurin:21-jre-jammy AS runtime
-
-# Criar usuário não-root por segurança
-# Executar aplicações como root em container é má prática de segurança
-RUN groupadd --gid 1001 mercado && \
-    useradd --uid 1001 --gid mercado --shell /bin/false mercado
-
+# ---- Estágio 3: Runtime -----------------------------------------------------
+FROM node:20-alpine AS runner
 WORKDIR /app
 
-# Copiar apenas o JAR do estágio anterior
-COPY --from=builder /build/target/*.jar app.jar
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV PORT=3000
 
-# Definir owner do arquivo
-RUN chown mercado:mercado app.jar
+# Criar usuário não-root por segurança
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 nextjs
 
-# Trocar para usuário não-root
-USER mercado
+# Copiar os arquivos públicos e de assets estáticos
+COPY --from=builder /app/public ./public
+COPY --from=builder /app/.next/static ./.next/static
 
-EXPOSE 8080
+# Copiar o build "standalone" que contém apenas o que é necessário para rodar
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 
-# Health check: o Actuator expõe /actuator/health
-HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD wget -qO- http://localhost:8080/actuator/health || exit 1
+USER nextjs
 
-# Opções JVM para produção:
-#   -XX:+UseContainerSupport: respeita limites de memória do container
-#   -XX:MaxRAMPercentage=75: usa até 75% da RAM disponível para o heap
-ENTRYPOINT ["java", \
-    "-XX:+UseContainerSupport", \
-    "-XX:MaxRAMPercentage=75.0", \
-    "-Dspring.profiles.active=prod", \
-    "-jar", "app.jar"]
+EXPOSE 3000
+
+# Next.js via standalone output gera um server.js na raiz
+CMD ["node", "server.js"]
