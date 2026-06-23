@@ -20,6 +20,14 @@ services:
       DATABASE_URL: postgresql://${DATABASE_USERNAME}:${DATABASE_PASSWORD}@db:5432/eq16?maximum_pool_size=5
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
       NEXTAUTH_URL: ${NEXTAUTH_URL}
+      # Integração com Discord (login/vínculo OAuth + bot de canais por equipe).
+      # Defina os valores no .env do servidor; veja .env.example para detalhes.
+      DISCORD_CLIENT_ID: ${DISCORD_CLIENT_ID}
+      DISCORD_CLIENT_SECRET: ${DISCORD_CLIENT_SECRET}
+      DISCORD_TOKEN_ENC_KEY: ${DISCORD_TOKEN_ENC_KEY}
+      DISCORD_BOT_TOKEN: ${DISCORD_BOT_TOKEN}
+      DISCORD_GUILD_ID: ${DISCORD_GUILD_ID}
+      DISCORD_TEAMS_CATEGORY_ID: ${DISCORD_TEAMS_CATEGORY_ID}
     depends_on:
       - db
 

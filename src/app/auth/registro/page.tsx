@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { DiscordLoginButton } from '@/components/auth/DiscordLoginButton';
 
 export default function RegistroPage() {
   const router = useRouter();
@@ -108,6 +109,8 @@ export default function RegistroPage() {
           >
             {carregando ? 'CRIANDO...' : 'CRIAR CONTA'}
           </button>
+
+          <DiscordLoginButton label="Criar conta com Discord" />
 
           <p className="text-center text-sm text-text-muted pt-2">
             Já tem conta?{' '}

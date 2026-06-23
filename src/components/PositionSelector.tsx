@@ -13,6 +13,7 @@ interface PositionSelectorProps {
   disabledLanes?: Lane[];
   size?: 'small' | 'medium' | 'large';
   variant?: 'dropdown' | 'radial';
+  accent?: 'cyan' | 'pink';
 }
 
 // Calcula posição radial para cada item (6 itens em círculo)
@@ -33,6 +34,7 @@ export function PositionSelector({
   disabledLanes = [],
   size = 'medium',
   variant = 'dropdown',
+  accent = 'cyan',
 }: PositionSelectorProps) {
   const [open, setOpen] = useState(false);
   const [, setAnchorRef] = useState<HTMLElement | null>(null);
@@ -41,6 +43,14 @@ export function PositionSelector({
 
   const iconSize = size === 'small' ? 32 : size === 'large' ? 56 : 40;
   const radialRadius = size === 'small' ? 60 : size === 'large' ? 95 : 78;
+
+  // Classes da cor de destaque (jogador = ciano, equipe = rosa).
+  const isPink = accent === 'pink';
+  const accentSelected = isPink ? 'bg-pink-subtle border-pink-subtle' : 'bg-cyan border-cyan';
+  const accentHover = isPink ? 'hover:bg-pink-subtle hover:border-pink-subtle' : 'hover:bg-cyan hover:border-cyan';
+  const accentText = isPink ? 'text-pink-subtle' : 'text-cyan';
+  const accentOutline = isPink ? 'focus-visible:outline-pink-subtle' : 'focus-visible:outline-cyan';
+  const accentRing = isPink ? 'focus:ring-pink-subtle' : 'focus:ring-cyan';
 
   const currentPosition = PLAYER_POSITIONS.find((p) => p.key === value);
   const iconSrc = currentPosition?.icon || DEFAULT_POSITION_ICON;
@@ -137,9 +147,9 @@ export function PositionSelector({
         className={`
           flex flex-col items-center justify-center gap-1 border transition-all duration-200
           ${isRadial ? 'rounded-full p-2 shadow-lg' : 'rounded-lg px-3 py-2'}
-          ${isSelected ? 'bg-cyan border-cyan scale-110' : 'bg-input-bg border-input-border'}
-          ${isLaneDisabled ? 'opacity-30 cursor-not-allowed' : 'hover:bg-cyan hover:border-cyan cursor-pointer'}
-          focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan
+          ${isSelected ? `${accentSelected} scale-110` : 'bg-input-bg border-input-border'}
+          ${isLaneDisabled ? 'opacity-30 cursor-not-allowed' : `${accentHover} cursor-pointer`}
+          focus-visible:outline focus-visible:outline-2 ${accentOutline}
         `}
       >
         <div className={isRadial ? 'relative w-7 h-7' : 'relative w-8 h-8'}>
@@ -170,9 +180,9 @@ export function PositionSelector({
         className={`
           rounded-full p-2 border transition-all duration-200
           bg-input-bg border-input-border
-          hover:bg-cyan hover:border-cyan
+          ${accentHover}
           disabled:opacity-50 disabled:cursor-not-allowed
-          focus:outline-none focus:ring-2 focus:ring-cyan
+          focus:outline-none focus:ring-2 ${accentRing}
           ${open && variant === 'radial' ? 'z-[60] relative' : ''}
         `}
       >
@@ -233,9 +243,9 @@ export function PositionSelector({
                   className={`
                     flex flex-col items-center justify-center gap-0.5 rounded-full p-2 border
                     transition-all duration-150 shadow-lg
-                    ${isSelected ? 'bg-cyan border-cyan scale-110' : 'bg-input-bg border-input-border'}
-                    ${isLaneDisabled ? 'opacity-30 cursor-not-allowed' : 'hover:bg-cyan hover:border-cyan hover:scale-110 cursor-pointer'}
-                    focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan
+                    ${isSelected ? `${accentSelected} scale-110` : 'bg-input-bg border-input-border'}
+                    ${isLaneDisabled ? 'opacity-30 cursor-not-allowed' : `${accentHover} hover:scale-110 cursor-pointer`}
+                    focus-visible:outline focus-visible:outline-2 ${accentOutline}
                   `}
                 >
                   <div className="relative w-7 h-7">
@@ -247,7 +257,7 @@ export function PositionSelector({
                     />
                   </div>
                 </button>
-                <span className={`block text-center text-[9px] font-bold uppercase tracking-widest mt-1 ${isSelected ? 'text-cyan' : isLaneDisabled ? 'text-text-muted/30' : 'text-text-muted'}`}>
+                <span className={`block text-center text-[9px] font-bold uppercase tracking-widest mt-1 ${isSelected ? accentText : isLaneDisabled ? 'text-text-muted/30' : 'text-text-muted'}`}>
                   {position.label}
                 </span>
               </div>

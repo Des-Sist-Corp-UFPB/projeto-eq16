@@ -1,9 +1,12 @@
 'use client';
 
 import { useState } from 'react';
+import { useSession } from 'next-auth/react';
 import { Lane } from '@/types';
 import { PositionSelector } from '@/components/PositionSelector';
 import { ModalSucesso } from '@/components/modals/ModalSucesso';
+import { VincularDiscordGate } from '@/components/modals/VincularDiscordGate';
+import { isNicknameValido, NICKNAME_HINT } from '@/constants/links';
 
 interface CadastroFreeAgentProps {
   open: boolean;
@@ -12,42 +15,54 @@ interface CadastroFreeAgentProps {
 }
 
 export function CadastroFreeAgent({ open, onClose, onSuccess }: CadastroFreeAgentProps) {
+  const { data: session } = useSession();
   const [nickname, setNickname] = useState('');
   const [lanePrincipal, setLanePrincipal] = useState<Lane | null>(null);
   const [laneSecundaria, setLaneSecundaria] = useState<Lane | null>(null);
-  const [contato, setContato] = useState('');
   const [erro, setErro] = useState('');
   const [enviando, setEnviando] = useState(false);
   const [mostrarSucesso, setMostrarSucesso] = useState(false);
 
-  const formatarTelefone = (valor: string) => {
-    const v = valor.replace(/\D/g, '');
-    if (v.length <= 2) return v;
-    if (v.length <= 7) return `(${v.slice(0, 2)}) ${v.slice(2)}`;
-    return `(${v.slice(0, 2)}) ${v.slice(2, 7)}-${v.slice(7, 11)}`;
-  };
-
   if (!open && !mostrarSucesso) return null;
+
+  // Vincular o Discord é pré-requisito para se cadastrar.
+  if (open && session?.user && !session.user.discordLinked) {
+    return <VincularDiscordGate onClose={onClose} acao="se cadastrar como Free Agent" />;
+  }
+
+  const ehFill = lanePrincipal === 'FILL';
 
   const handleSubmit = async () => {
     setErro('');
 
-    if (!nickname.trim() || !lanePrincipal || !laneSecundaria || !contato.trim()) {
+    if (!nickname.trim() || !lanePrincipal) {
       setErro('Todos os campos são obrigatórios.');
       return;
     }
 
-    if (lanePrincipal === laneSecundaria) {
+    if (!ehFill && !laneSecundaria) {
+      setErro('Selecione a lane secundária.');
+      return;
+    }
+
+    if (!isNicknameValido(nickname)) {
+      setErro('Nickname inválido. Use o formato Nome#TAG (ex.: Chico kit lasca#Chico).');
+      return;
+    }
+
+    if (!ehFill && lanePrincipal === laneSecundaria) {
       setErro('A lane principal deve ser diferente da lane secundária.');
       return;
     }
+
+    const secundaria = ehFill ? null : laneSecundaria;
 
     setEnviando(true);
     try {
       const res = await fetch('/api/free-agents', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nickname: nickname.trim(), lanePrincipal, laneSecundaria, contato: contato.trim() }),
+        body: JSON.stringify({ nickname: nickname.trim(), lanePrincipal, laneSecundaria: secundaria }),
       });
 
       if (!res.ok) {
@@ -59,7 +74,6 @@ export function CadastroFreeAgent({ open, onClose, onSuccess }: CadastroFreeAgen
       setNickname('');
       setLanePrincipal(null);
       setLaneSecundaria(null);
-      setContato('');
       onSuccess();
       onClose();
       setMostrarSucesso(true);
@@ -93,8 +107,9 @@ export function CadastroFreeAgent({ open, onClose, onSuccess }: CadastroFreeAgen
         <div className="space-y-4">
           <div>
             <label className="block text-xs font-bold uppercase tracking-widest text-text-muted mb-1.5">Nickname</label>
-            <input type="text" value={nickname} onChange={(e) => setNickname(e.target.value)} placeholder="Nickname"
+            <input type="text" value={nickname} onChange={(e) => setNickname(e.target.value)} placeholder="Chico kit lasca#Chico"
               className="w-full px-4 py-2.5 rounded-lg bg-input-bg border border-input-border text-text-main placeholder-text-muted/50 focus:outline-none transition-colors" />
+            <p className="mt-1.5 text-[11px] text-text-muted/70 font-light">{NICKNAME_HINT}</p>
           </div>
 
           <div>
@@ -102,19 +117,25 @@ export function CadastroFreeAgent({ open, onClose, onSuccess }: CadastroFreeAgen
             <div className="flex justify-center items-start gap-10">
               <div className="flex flex-col items-center gap-1.5">
                 <span className="text-[10px] font-bold uppercase tracking-widest text-text-muted">Principal</span>
-                <PositionSelector value={lanePrincipal} onChange={setLanePrincipal} disabledLanes={laneSecundaria ? [laneSecundaria] : []} variant="radial" />
+                <PositionSelector
+                  value={lanePrincipal}
+                  onChange={(lane) => { setLanePrincipal(lane); if (lane === 'FILL') setLaneSecundaria(null); }}
+                  disabledLanes={laneSecundaria ? [laneSecundaria] : []}
+                  variant="radial"
+                />
               </div>
-              <div className="flex flex-col items-center gap-1.5">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-text-muted">Secundária</span>
-                <PositionSelector value={laneSecundaria} onChange={setLaneSecundaria} disabledLanes={lanePrincipal ? [lanePrincipal] : []} variant="radial" />
-              </div>
+              {!ehFill && (
+                <div className="flex flex-col items-center gap-1.5">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-text-muted">Secundária</span>
+                  <PositionSelector value={laneSecundaria} onChange={setLaneSecundaria} disabledLanes={lanePrincipal ? [lanePrincipal] : []} variant="radial" />
+                </div>
+              )}
             </div>
-          </div>
-
-          <div>
-            <label className="block text-xs font-bold uppercase tracking-widest text-text-muted mb-1.5">Número WhatsApp</label>
-            <input type="text" value={contato} onChange={(e) => setContato(formatarTelefone(e.target.value))} maxLength={15} placeholder="(83) 99999-9999"
-              className="w-full px-4 py-2.5 rounded-lg bg-input-bg border border-input-border text-text-main placeholder-text-muted/50 focus:outline-none transition-colors" />
+            {ehFill && (
+              <p className="mt-2 text-center text-[11px] font-light text-text-muted/70">
+                Como Fill, você joga qualquer rota — sem necessidade de secundária.
+              </p>
+            )}
           </div>
 
           {erro && <p className="text-pink-subtle text-sm bg-pink-subtle/10 border border-pink-subtle/20 rounded-lg px-3 py-2">{erro}</p>}

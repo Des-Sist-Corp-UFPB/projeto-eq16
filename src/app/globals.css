@@ -70,6 +70,14 @@ body {
   }
 }
 
+/* Cursor pointer em todos os elementos interativos */
+button:not(:disabled),
+a,
+[role="button"],
+label[for] {
+  cursor: pointer;
+}
+
 /* Global input/select focus ring */
 input:focus,
 select:focus,

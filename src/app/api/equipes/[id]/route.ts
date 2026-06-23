@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSessionOrUnauthorized } from '@/lib/apiAuth';
+import { isNicknameValido } from '@/constants/links';
+import { deleteChannel } from '@/lib/discord';
+
+const MAX_VAGAS = 5;
 
 // PUT /api/equipes/[id] — atualizar equipe (dono ou admin)
 export async function PUT(
@@ -26,11 +30,32 @@ export async function PUT(
   }
 
   try {
-    const { nome, contatoCapitao, laneCapitao, vagasLanes } = await req.json();
+    const { nome, nicknameCapitao, vagasLanes } = await req.json();
 
-    if (!nome || !contatoCapitao || !laneCapitao) {
+    if (!nome || !nicknameCapitao) {
       return NextResponse.json(
         { erro: 'Campos obrigatórios não preenchidos' },
+        { status: 400 }
+      );
+    }
+
+    if (!isNicknameValido(nicknameCapitao)) {
+      return NextResponse.json(
+        { erro: 'Nickname do capitão inválido. Use o formato Nome#TAG.' },
+        { status: 400 }
+      );
+    }
+
+    if (!Array.isArray(vagasLanes) || vagasLanes.length === 0) {
+      return NextResponse.json(
+        { erro: 'Selecione ao menos uma vaga aberta.' },
+        { status: 400 }
+      );
+    }
+
+    if (vagasLanes.length > MAX_VAGAS) {
+      return NextResponse.json(
+        { erro: `Máximo de ${MAX_VAGAS} vagas por equipe.` },
         { status: 400 }
       );
     }
@@ -39,8 +64,7 @@ export async function PUT(
       where: { id },
       data: {
         nome,
-        contatoCapitao,
-        laneCapitao,
+        nicknameCapitao,
         vagasLanes: vagasLanes ?? [],
       },
     });
@@ -75,6 +99,12 @@ export async function DELETE(
   }
 
   await prisma.equipe.delete({ where: { id } });
+
+  // Best-effort: remove o canal do Discord junto (candidaturas caem por cascade).
+  if (equipe.discordChannelId) {
+    await deleteChannel(equipe.discordChannelId);
+  }
+
   return NextResponse.json({ mensagem: 'Equipe removida com sucesso' });
 }
 

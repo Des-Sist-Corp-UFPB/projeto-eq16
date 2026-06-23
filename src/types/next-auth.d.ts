@@ -7,9 +7,11 @@ declare module 'next-auth' {
       id: string;
       username: string;
       role: string;
+      discordId: string | null;
+      discordUsername: string | null;
+      discordLinked: boolean;
     };
   }
-
   interface User {
     id: string;
     username: string;
@@ -22,5 +24,7 @@ declare module 'next-auth/jwt' {
     id: string;
     username: string;
     role: string;
+    discordId?: string | null;
+    discordUsername?: string | null;
   }
 }

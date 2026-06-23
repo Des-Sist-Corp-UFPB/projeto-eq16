@@ -2,17 +2,20 @@
 
 import { useState } from 'react';
 import Image from 'next/image';
+import { useRouter, usePathname } from 'next/navigation';
 import { Lane } from '@/types';
 import { PLAYER_POSITIONS } from '@/constants/positions';
+import { buildLeagueOfGraphsUrl } from '@/constants/links';
 import { useSession } from 'next-auth/react';
 import { ModalConfirmacao } from '@/components/modals/ModalConfirmacao';
+import { DiscordChip } from '@/components/DiscordChip';
 
 interface FreeAgentInfoResumeProps {
   id: string;
   nickname: string;
   lanePrincipal: Lane;
-  laneSecundaria: Lane;
-  contato: string;
+  laneSecundaria: Lane | null;
+  discordUsername: string | null;
   userId: string;
   onDelete?: () => void;
 }
@@ -22,31 +25,26 @@ export function FreeAgentInfoResume({
   nickname,
   lanePrincipal,
   laneSecundaria,
-  contato,
+  discordUsername,
   userId,
   onDelete,
 }: FreeAgentInfoResumeProps) {
   const { data: session } = useSession();
-  const [copiado, setCopiado] = useState(false);
+  const router = useRouter();
+  const pathname = usePathname();
   const [deletando, setDeletando] = useState(false);
   const [modalConfirmar, setModalConfirmar] = useState(false);
 
   const iconPrincipal = PLAYER_POSITIONS.find((p) => p.key === lanePrincipal);
   const iconSecundaria = PLAYER_POSITIONS.find((p) => p.key === laneSecundaria);
+  const nicknameUrl = buildLeagueOfGraphsUrl(nickname);
 
+  const isLoggedIn = !!session?.user;
   const isOwner = session?.user?.id === userId;
   const isAdmin = session?.user?.role === 'ADMIN';
   const canDelete = isOwner || isAdmin;
 
-  const handleCopiarContato = async () => {
-    try {
-      await navigator.clipboard.writeText(contato);
-      setCopiado(true);
-      setTimeout(() => setCopiado(false), 2000);
-    } catch {
-      // Fallback silencioso
-    }
-  };
+  const irParaLogin = () => router.push(`/auth/login?redirect=${pathname}`);
 
   const handleDelete = async () => {
     setDeletando(true);
@@ -65,60 +63,63 @@ export function FreeAgentInfoResume({
 
   return (
     <>
-      <div className="bg-navy-light border border-cyan/10 rounded-xl p-4 flex items-center gap-4 hover:border-cyan/30 transition-all duration-200 group">
-        {/* Ícones de lanes */}
-        <div className="flex items-center gap-2 shrink-0">
-          {iconPrincipal && (
-            <div className="relative w-10 h-10" title={`Principal: ${iconPrincipal.label}`}>
-              <Image src={iconPrincipal.icon} alt={iconPrincipal.label} fill style={{ objectFit: 'contain' }} />
-            </div>
-          )}
-          {iconSecundaria && (
-            <div className="relative w-10 h-10 opacity-60" title={`Secundária: ${iconSecundaria.label}`}>
-              <Image src={iconSecundaria.icon} alt={iconSecundaria.label} fill style={{ objectFit: 'contain' }} />
-            </div>
-          )}
-        </div>
-
-        {/* Nickname */}
-        <div className="flex-1 min-w-0">
-          <p className="font-display text-text-main font-bold text-lg truncate uppercase tracking-wide">{nickname}</p>
-          <p className="text-text-muted text-xs font-medium">
-            {iconPrincipal?.label} / {iconSecundaria?.label}
-          </p>
-        </div>
-
-        {/* Ações */}
-        <div className="flex items-center gap-2 shrink-0">
-          <button
-            onClick={handleCopiarContato}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cyan-dim text-cyan hover:bg-cyan/20 border border-cyan/20 transition-all text-sm font-semibold"
-            title="Copiar contato"
-          >
-            {copiado ? (
-              <>
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-                Copiado!
-              </>
-            ) : (
-              <>
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
-                WhatsApp
-              </>
-            )}
-          </button>
-
-          {canDelete && (
-            <button
-              onClick={() => setModalConfirmar(true)}
-              disabled={deletando}
-              className="p-1.5 rounded-lg text-pink-subtle hover:bg-pink-subtle/10 transition-all disabled:opacity-50"
-              title="Remover"
+      <div className="group flex items-start gap-4 rounded-xl border border-cyan/10 bg-navy-light p-4 transition-colors duration-200 hover:border-cyan/30">
+        <div className="min-w-0 flex-1">
+          {/* Nickname (clicável -> League of Graphs) */}
+          {nicknameUrl ? (
+            <a
+              href={nicknameUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-display block truncate text-lg font-bold tracking-wide text-text-main transition-colors hover:text-cyan"
+              title="Ver perfil no League of Graphs"
             >
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-            </button>
+              {nickname}
+            </a>
+          ) : (
+            <p className="font-display truncate text-lg font-bold tracking-wide text-text-main">{nickname}</p>
           )}
+
+          {/* Chips: rotas (ciano) + Discord (blurple) */}
+          <div className="mt-2.5 flex flex-wrap items-center gap-2">
+            {iconPrincipal && (
+              <span
+                className="inline-flex items-center gap-2 rounded-lg border border-cyan/30 bg-cyan-dim px-3 py-1.5 text-xs font-bold text-cyan"
+                title={`Principal: ${iconPrincipal.label}`}
+              >
+                <span className="relative h-4 w-4 shrink-0">
+                  <Image src={iconPrincipal.icon} alt={iconPrincipal.label} fill style={{ objectFit: 'contain' }} />
+                </span>
+                {iconPrincipal.label}
+              </span>
+            )}
+            {iconSecundaria && (
+              <span
+                className="inline-flex items-center gap-2 rounded-lg border border-cyan/30 bg-cyan-dim px-3 py-1.5 text-xs font-bold text-cyan"
+                title={`Secundária: ${iconSecundaria.label}`}
+              >
+                <span className="relative h-4 w-4 shrink-0">
+                  <Image src={iconSecundaria.icon} alt={iconSecundaria.label} fill style={{ objectFit: 'contain' }} />
+                </span>
+                {iconSecundaria.label}
+              </span>
+            )}
+
+            {/* Chip do Discord — copiável quando logado (clique copia o usuário). */}
+            <DiscordChip username={discordUsername} isLoggedIn={isLoggedIn} onRequireLogin={irParaLogin} />
+          </div>
         </div>
+
+        {canDelete && (
+          <button
+            onClick={() => setModalConfirmar(true)}
+            disabled={deletando}
+            className="shrink-0 rounded-lg p-1.5 text-pink-subtle transition-all hover:bg-pink-subtle/10 disabled:opacity-50"
+            title="Remover"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+          </button>
+        )}
       </div>
 
       <ModalConfirmacao

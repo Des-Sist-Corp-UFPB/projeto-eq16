@@ -32,6 +32,13 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ erro: 'Usuário não encontrado' }, { status: 404 });
     }
 
+    if (!user.password) {
+      return NextResponse.json(
+        { erro: 'Sua conta entra pelo Discord e não possui senha local para alterar.' },
+        { status: 400 }
+      );
+    }
+
     const senhaCorreta = await bcrypt.compare(senhaAtual, user.password);
     if (!senhaCorreta) {
       return NextResponse.json({ erro: 'Senha atual incorreta' }, { status: 403 });

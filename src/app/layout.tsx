@@ -3,6 +3,7 @@ import { Inter, Space_Grotesk } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/Providers";
 import { Navbar } from "@/components/Navbar";
+import { DiscordLinkBanner } from "@/components/DiscordLinkBanner";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 const spaceGrotesk = Space_Grotesk({ subsets: ["latin"], variable: "--font-display" });
@@ -23,6 +24,7 @@ export default function RootLayout({
         <Providers>
           <Navbar />
           {children}
+          <DiscordLinkBanner />
         </Providers>
       </body>
     </html>

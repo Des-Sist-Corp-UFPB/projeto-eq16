@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { DiscordLoginButton } from '@/components/auth/DiscordLoginButton';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -27,7 +28,9 @@ export default function LoginPage() {
       if (result?.error) {
         setErro('Usuário ou senha incorretos');
       } else {
-        router.push('/inicio');
+        const redirectParam = new URLSearchParams(window.location.search).get('redirect');
+        const destino = redirectParam && redirectParam.startsWith('/') ? redirectParam : '/inicio';
+        router.push(destino);
       }
     } catch {
       setErro('Erro de conexão');
@@ -82,6 +85,8 @@ export default function LoginPage() {
           >
             {carregando ? 'ENTRANDO...' : 'ENTRAR'}
           </button>
+
+          <DiscordLoginButton />
 
           <p className="text-center text-sm text-text-muted pt-2">
             Não tem conta?{' '}
