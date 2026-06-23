@@ -11,6 +11,12 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DATABASE_USERNAME} -d eq16"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
   app:
     build: .
@@ -28,8 +34,15 @@ services:
       DISCORD_BOT_TOKEN: ${DISCORD_BOT_TOKEN}
       DISCORD_GUILD_ID: ${DISCORD_GUILD_ID}
       DISCORD_TEAMS_CATEGORY_ID: ${DISCORD_TEAMS_CATEGORY_ID}
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/api/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
     depends_on:
-      - db
+      db:
+        condition: service_healthy
 
 volumes:
   postgres_data:
