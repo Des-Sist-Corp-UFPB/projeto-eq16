@@ -15,6 +15,7 @@ export function Navbar() {
   const { data: session } = useSession();
   const [menuAberto, setMenuAberto] = useState(false);
   const pathname = usePathname();
+  const isAdmin = session?.user?.role === 'ADMIN';
 
   const handleSair = () => {
     setMenuAberto(false);
@@ -54,6 +55,18 @@ export function Navbar() {
                 </Link>
               );
             })}
+            {isAdmin && (
+              <Link
+                href="/admin/auditoria"
+                className={`px-2 py-2 text-xs font-bold uppercase tracking-[0.15em] transition-colors lg:px-3 ${
+                  isActive('/admin/auditoria')
+                    ? 'text-pink-subtle'
+                    : 'text-text-muted hover:text-pink-subtle'
+                }`}
+              >
+                AUDITORIA
+              </Link>
+            )}
           </div>
         </div>
 
@@ -146,6 +159,19 @@ export function Navbar() {
                 </Link>
               );
             })}
+            {isAdmin && (
+              <Link
+                href="/admin/auditoria"
+                onClick={() => setMenuAberto(false)}
+                className={`rounded-lg px-4 py-3 text-xs font-bold uppercase tracking-[0.2em] transition-colors ${
+                  isActive('/admin/auditoria')
+                    ? 'border border-pink-subtle/20 bg-pink-subtle/10 text-pink-subtle'
+                    : 'border border-transparent text-text-muted hover:bg-navy-light'
+                }`}
+              >
+                AUDITORIA
+              </Link>
+            )}
           </div>
 
           <div className="mt-1 rounded-xl border border-cyan/10 bg-navy-light p-3">

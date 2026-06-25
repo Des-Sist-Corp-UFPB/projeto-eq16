@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSessionOrUnauthorized } from '@/lib/apiAuth';
+import { logAudit, requestMeta, AuditAction } from '@/lib/audit';
 
 export async function DELETE(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { session, error } = await getSessionOrUnauthorized();
@@ -27,5 +28,16 @@ export async function DELETE(
   }
 
   await prisma.freeAgent.delete({ where: { id } });
+
+  await logAudit({
+    action: AuditAction.FREEAGENT_DELETE,
+    actorId: session!.user.id,
+    actorLabel: session!.user.username,
+    targetType: 'FreeAgent',
+    targetId: id,
+    metadata: { nickname: freeAgent.nickname, porAdmin: isAdmin && !isOwner },
+    ...requestMeta(req),
+  });
+
   return NextResponse.json({ mensagem: 'Free agent removido com sucesso' });
 }

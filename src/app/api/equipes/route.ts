@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { getSessionOrUnauthorized } from '@/lib/apiAuth';
 import { isNicknameValido } from '@/constants/links';
 import { createTeamChannel } from '@/lib/discord';
+import { logAudit, requestMeta, AuditAction } from '@/lib/audit';
 
 const MAX_VAGAS = 5;
 
@@ -103,6 +104,16 @@ export async function POST(req: NextRequest) {
     } catch {
       // segue sem canal — a equipe já foi criada.
     }
+
+    await logAudit({
+      action: AuditAction.EQUIPE_CREATE,
+      actorId: session!.user.id,
+      actorLabel: session!.user.username,
+      targetType: 'Equipe',
+      targetId: equipe.id,
+      metadata: { nome, vagasLanes: equipe.vagasLanes, discordChannel: !!discordChannelId },
+      ...requestMeta(req),
+    });
 
     return NextResponse.json({ ...equipe, discordChannelId }, { status: 201 });
   } catch {

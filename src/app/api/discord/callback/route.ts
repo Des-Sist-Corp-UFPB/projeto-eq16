@@ -8,6 +8,7 @@ import {
   addUserToGuild,
   encryptToken,
 } from '@/lib/discord';
+import { logAudit, requestMeta, AuditAction } from '@/lib/audit';
 
 type Status = 'ok' | 'erro_login' | 'erro_state' | 'ja_vinculado' | 'erro';
 
@@ -62,6 +63,16 @@ export async function GET(req: NextRequest) {
     } catch {
       // ignora — o vínculo em si já foi salvo.
     }
+
+    await logAudit({
+      action: AuditAction.DISCORD_LINK,
+      actorId: session.user.id,
+      actorLabel: session.user.username,
+      targetType: 'User',
+      targetId: session.user.id,
+      metadata: { discordId: discordUser.id, discordUsername: discordUser.username },
+      ...requestMeta(req),
+    });
 
     const res = redirectComStatus(req, 'ok');
     res.cookies.delete('discord_oauth_state');

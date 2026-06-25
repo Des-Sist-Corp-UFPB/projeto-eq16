@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { getSessionOrUnauthorized } from '@/lib/apiAuth';
 import { isNicknameValido } from '@/constants/links';
 import { deleteChannel } from '@/lib/discord';
+import { logAudit, requestMeta, AuditAction } from '@/lib/audit';
 
 const MAX_VAGAS = 5;
 
@@ -69,6 +70,20 @@ export async function PUT(
       },
     });
 
+    await logAudit({
+      action: AuditAction.EQUIPE_UPDATE,
+      actorId: session!.user.id,
+      actorLabel: session!.user.username,
+      targetType: 'Equipe',
+      targetId: id,
+      metadata: {
+        nome: updated.nome,
+        vagasLanes: updated.vagasLanes,
+        porAdmin: isAdmin && !isOwner,
+      },
+      ...requestMeta(req),
+    });
+
     return NextResponse.json(updated);
   } catch {
     return NextResponse.json({ erro: 'Erro interno' }, { status: 500 });
@@ -77,7 +92,7 @@ export async function PUT(
 
 // DELETE /api/equipes/[id] — remover equipe (dono ou admin)
 export async function DELETE(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { session, error } = await getSessionOrUnauthorized();
@@ -104,6 +119,16 @@ export async function DELETE(
   if (equipe.discordChannelId) {
     await deleteChannel(equipe.discordChannelId);
   }
+
+  await logAudit({
+    action: AuditAction.EQUIPE_DELETE,
+    actorId: session!.user.id,
+    actorLabel: session!.user.username,
+    targetType: 'Equipe',
+    targetId: id,
+    metadata: { nome: equipe.nome, porAdmin: isAdmin && !isOwner },
+    ...requestMeta(req),
+  });
 
   return NextResponse.json({ mensagem: 'Equipe removida com sucesso' });
 }

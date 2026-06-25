@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSessionOrUnauthorized } from '@/lib/apiAuth';
 import { addMemberToChannel, postChannelMessage } from '@/lib/discord';
+import { logAudit, requestMeta, AuditAction } from '@/lib/audit';
 import { PLAYER_POSITIONS } from '@/constants/positions';
 import { Lane } from '@/types';
 
@@ -104,8 +105,18 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     select: { id: true },
   });
   if (!jaSolicitou) {
-    await prisma.candidatura.create({
+    const novaCandidatura = await prisma.candidatura.create({
       data: { equipeId: id, userId: session!.user.id, lane },
+    });
+
+    await logAudit({
+      action: AuditAction.CANDIDATURA_CREATE,
+      actorId: session!.user.id,
+      actorLabel: session!.user.username,
+      targetType: 'Candidatura',
+      targetId: novaCandidatura.id,
+      metadata: { equipeId: id, equipeNome: equipe.nome, lane },
+      ...requestMeta(req),
     });
   }
 
