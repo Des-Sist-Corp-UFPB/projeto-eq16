@@ -5,9 +5,9 @@
 | **Data** | 2026-06-25 |
 | **Repositório** | https://github.com/des-sist-corp-ufpb/projeto-eq16 |
 | **Aplicação** | https://eq16.dsc.rodrigor.com |
-| **Período de atividade** | 2026-06-23 → 2026-06-23 |
-| **Total de commits** (sem merges) | 1 |
-| **Integrantes** | Gabriel Mizael De Sousa Gomes (@gbrlmzl) |
+| **Período de atividade** | 2026-06-23 → 2026-06-25 |
+| **Total de commits** (sem merges, branch main) | 2 |
+| **Integrantes** | Gabriel Mizael De Sousa Gomes (@gbrlmzl), Victor Hugo Salviano Trajano Da Silva (@victorhugosalv) |
 
 ---
 
@@ -56,16 +56,23 @@ Não detectados automaticamente.
 
 ### Resumo
 
-| Usuário | Commits | % commits | Linhas adicionadas | Linhas no código atual | % código atual |
-|---------|---------|-----------|-------------------|----------------------|----------------|
-| Gabriel Mizael De Sousa Gomes (@gbrlmzl) | 1 | 100% | 15.779 | 5.281 | 100% |
+| Usuário | Commits (main) | Commits (GitHub API) | Linhas adicionadas | Linhas no código atual | % código atual |
+|---------|---------------|---------------------|-------------------|----------------------|----------------|
+| Gabriel Mizael De Sousa Gomes (@gbrlmzl) | 1 | **26** ⚠️ | 15.779 | 5.281 | 100% |
+| Victor Hugo Salviano Trajano Da Silva (@victorhugosalv) | 0 | **27** ⚠️ | 0 | 0 | 0% |
+| *(sem login GitHub)* | 1 | 50% | — | — | — |
+
+> **⚠️ Divergência entre commits locais e GitHub API:**
+> - **@gbrlmzl**: 1 commit(s) na branch `main` vs **26** registrados na API GitHub (commits em branches não mergeadas ou absorvidos via squash-merge sem preservação de autoria).
+> - **@victorhugosalv**: 0 commit(s) na branch `main` vs **27** registrados na API GitHub (commits em branches não mergeadas ou absorvidos via squash-merge sem preservação de autoria).
+>
 
 ### Contribuição por Camada
 
-| Camada | Total linhas | Gabriel Mizael De Sousa Gomes (@gbrlmzl) |
-|--------|-------------|---------|
-| Frontend | 2.317 | 100% |
-| Migration | 108 | 100% |
+| Camada | Total linhas | Gabriel Mizael De Sousa Gomes (@gbrlmzl) | Victor Hugo Salviano Trajano Da Silva (@victorhugosalv) |
+|--------|-------------|---------|---------|
+| Frontend | 2.317 | 100% | 0% |
+| Migration | 108 | 100% | 0% |
 
 ---
 
