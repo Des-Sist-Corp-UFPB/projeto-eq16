@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSessionOrUnauthorized } from '@/lib/apiAuth';
 import { addMemberToChannel, postChannelMessage } from '@/lib/discord';
+import { buildCandidaturaButtons } from '@/lib/discordInteractions';
 import { logAudit, requestMeta, AuditAction } from '@/lib/audit';
 import { PLAYER_POSITIONS } from '@/constants/positions';
 import { Lane } from '@/types';
@@ -104,10 +105,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     where: { equipeId_userId_lane: { equipeId: id, userId: session!.user.id, lane } },
     select: { id: true },
   });
+
+  let candidaturaId = jaSolicitou?.id;
   if (!jaSolicitou) {
     const novaCandidatura = await prisma.candidatura.create({
       data: { equipeId: id, userId: session!.user.id, lane },
     });
+    candidaturaId = novaCandidatura.id;
 
     await logAudit({
       action: AuditAction.CANDIDATURA_CREATE,
@@ -120,15 +124,17 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     });
   }
 
-  // Best-effort: joga o free agent dentro do canal da equipe e avisa o capitão.
+  // Best-effort: joga o free agent dentro do canal e posta o painel de Aceitar/Recusar
+  // (os botões disparam o Interactions Endpoint quando o capitão decide).
   let noCanal = false;
   if (equipe.discordChannelId) {
     noCanal = await addMemberToChannel(equipe.discordChannelId, solicitante.discordId);
-    if (noCanal) {
+    if (noCanal && candidaturaId) {
       const nick = solicitante.discordUsername ?? 'Um jogador';
       await postChannelMessage(
         equipe.discordChannelId,
-        `🎯 ${nick} entrou para testes na posição ${labelDaLane(lane)}!`
+        `🎯 ${nick} solicitou entrada para a posição ${labelDaLane(lane)}.`,
+        buildCandidaturaButtons(candidaturaId)
       );
     }
   }

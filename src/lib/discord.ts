@@ -219,15 +219,22 @@ export async function removeMemberFromChannel(channelId: string, discordId: stri
   return res.ok;
 }
 
-/** Posta uma mensagem no canal. */
-export async function postChannelMessage(channelId: string, content: string): Promise<boolean> {
+/**
+ * Posta uma mensagem no canal. Aceita `components` opcionais (ex.: action row de
+ * botões) para o painel de Aceitar/Recusar candidatura.
+ */
+export async function postChannelMessage(
+  channelId: string,
+  content: string,
+  components?: unknown[]
+): Promise<boolean> {
   const botToken = process.env.DISCORD_BOT_TOKEN;
   if (!botToken) return false;
 
   const res = await fetch(`${DISCORD_API}/channels/${channelId}/messages`, {
     method: 'POST',
     headers: botHeaders(botToken),
-    body: JSON.stringify({ content }),
+    body: JSON.stringify(components?.length ? { content, components } : { content }),
   });
   return res.ok;
 }
