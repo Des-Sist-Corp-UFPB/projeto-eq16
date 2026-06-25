@@ -1,0 +1,35 @@
+name: CI
+
+# Qualidade antes de mergear: lint + typecheck + testes com cobertura.
+# Os testes usam mocks (prisma/discord/fetch), então NÃO precisam de banco.
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+jobs:
+  qualidade:
+    runs-on: ubuntu-latest
+    env:
+      # prisma generate (postinstall) lê esta variável; valor fictício basta (não conecta).
+      DATABASE_URL: 'postgresql://user:pass@localhost:5432/db'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Testes + cobertura (≥85% na camada crítica)
+        run: npm run test:cov

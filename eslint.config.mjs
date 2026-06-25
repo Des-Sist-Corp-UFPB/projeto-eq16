@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Saída de cobertura de testes (gerada).
+    "coverage/**",
   ]),
 ]);
 
