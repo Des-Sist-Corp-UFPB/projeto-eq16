@@ -50,6 +50,7 @@ model User {
   freeAgents   FreeAgent[]
   equipes      Equipe[]
   candidaturas Candidatura[]
+  auditLogs    AuditLog[]    @relation("AuditActor")
 }
 
 model FreeAgent {
@@ -92,4 +93,27 @@ model Candidatura {
 
   // Idempotência: um mesmo usuário não duplica o pedido para a mesma vaga.
   @@unique([equipeId, userId, lane])
+}
+
+/// Log de auditoria: trilha imutável de QUEM fez O QUÊ e QUANDO.
+/// Escrito best-effort por `src/lib/audit.ts` nos pontos de mutação.
+model AuditLog {
+  id         String   @id @default(cuid())
+  action     String // ação namespaced, ex.: "equipe.create" (ver AuditAction em src/lib/audit.ts)
+  actorId    String? // quem executou; null = sistema ou anônimo
+  actorLabel String? // username no momento do evento (preservado mesmo se a conta for removida)
+  targetType String? // recurso afetado: "Equipe" | "FreeAgent" | "Candidatura" | "User"
+  targetId   String? // id do recurso afetado
+  metadata   Json? // payload contextual (lane, status, mudanças, etc.)
+  ip         String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  // SetNull preserva a trilha de auditoria mesmo que o usuário seja deletado.
+  actor User? @relation("AuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([action])
+  @@index([actorId])
+  @@index([targetType, targetId])
+  @@index([createdAt])
 }

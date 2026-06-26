@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { prisma } from '@/lib/prisma';
+import { logAudit, requestMeta, AuditAction } from '@/lib/audit';
 
 export async function POST(req: NextRequest) {
   try {
@@ -31,6 +32,16 @@ export async function POST(req: NextRequest) {
     const hash = await bcrypt.hash(password, 12);
     const user = await prisma.user.create({
       data: { username, password: hash },
+    });
+
+    await logAudit({
+      action: AuditAction.USER_REGISTER,
+      actorId: user.id,
+      actorLabel: user.username,
+      targetType: 'User',
+      targetId: user.id,
+      metadata: { method: 'credentials' },
+      ...requestMeta(req),
     });
 
     return NextResponse.json(

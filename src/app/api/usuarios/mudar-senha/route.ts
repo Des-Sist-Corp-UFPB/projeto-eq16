@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { prisma } from '@/lib/prisma';
 import { getSessionOrUnauthorized } from '@/lib/apiAuth';
+import { logAudit, requestMeta, AuditAction } from '@/lib/audit';
 
 export async function PATCH(req: NextRequest) {
   const { session, error } = await getSessionOrUnauthorized();
@@ -48,6 +49,15 @@ export async function PATCH(req: NextRequest) {
     await prisma.user.update({
       where: { id: user.id },
       data: { password: novoHash },
+    });
+
+    await logAudit({
+      action: AuditAction.PASSWORD_CHANGE,
+      actorId: user.id,
+      actorLabel: user.username,
+      targetType: 'User',
+      targetId: user.id,
+      ...requestMeta(req),
     });
 
     return NextResponse.json({ mensagem: 'Senha alterada com sucesso' });

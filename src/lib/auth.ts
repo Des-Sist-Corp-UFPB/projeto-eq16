@@ -4,6 +4,7 @@ import DiscordProvider from 'next-auth/providers/discord';
 import bcrypt from 'bcryptjs';
 import { prisma } from './prisma';
 import { encryptToken, addUserToGuild } from './discord';
+import { logAudit, AuditAction } from './audit';
 
 interface DiscordProfile extends Profile {
   id: string;
@@ -136,6 +137,19 @@ export const authOptions: NextAuthOptions = {
         token.discordUsername = dbUser?.discordUsername ?? null;
       }
 
+      // Auditoria de login: apenas na entrada inicial (quando há `user`/`account`),
+      // já com o nosso id do banco resolvido (não o snowflake do Discord).
+      if (token.id && (user || account)) {
+        await logAudit({
+          action: AuditAction.AUTH_LOGIN,
+          actorId: token.id as string,
+          actorLabel: token.username as string,
+          targetType: 'User',
+          targetId: token.id as string,
+          metadata: { provider: account?.provider ?? 'credentials' },
+        });
+      }
+
       return token;
     },
 
@@ -149,6 +163,21 @@ export const authOptions: NextAuthOptions = {
         session.user.discordLinked = !!token.discordId;
       }
       return session;
+    },
+  },
+
+  events: {
+    // Logout: o token JWT ainda traz a identidade no momento da saída.
+    async signOut({ token }) {
+      if (token?.id) {
+        await logAudit({
+          action: AuditAction.AUTH_LOGOUT,
+          actorId: token.id as string,
+          actorLabel: token.username as string,
+          targetType: 'User',
+          targetId: token.id as string,
+        });
+      }
     },
   },
 

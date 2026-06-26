@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSessionOrUnauthorized } from '@/lib/apiAuth';
 import { isNicknameValido } from '@/constants/links';
+import { logAudit, requestMeta, AuditAction } from '@/lib/audit';
 
 // GET /api/free-agents — público
 export async function GET() {
@@ -98,6 +99,16 @@ export async function POST(req: NextRequest) {
         laneSecundaria: secundaria,
         userId: session!.user.id,
       },
+    });
+
+    await logAudit({
+      action: AuditAction.FREEAGENT_CREATE,
+      actorId: session!.user.id,
+      actorLabel: session!.user.username,
+      targetType: 'FreeAgent',
+      targetId: freeAgent.id,
+      metadata: { nickname, lanePrincipal, laneSecundaria: secundaria },
+      ...requestMeta(req),
     });
 
     return NextResponse.json(freeAgent, { status: 201 });

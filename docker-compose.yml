@@ -30,6 +30,9 @@ services:
       # Defina os valores no .env do servidor; veja .env.example para detalhes.
       DISCORD_CLIENT_ID: ${DISCORD_CLIENT_ID}
       DISCORD_CLIENT_SECRET: ${DISCORD_CLIENT_SECRET}
+      # Valida a assinatura Ed25519 dos botões (Interactions Endpoint). Sem ela,
+      # POST /api/discord/interactions responde 401 e os botões Aceitar/Recusar não funcionam.
+      DISCORD_PUBLIC_KEY: ${DISCORD_PUBLIC_KEY}
       DISCORD_TOKEN_ENC_KEY: ${DISCORD_TOKEN_ENC_KEY}
       DISCORD_BOT_TOKEN: ${DISCORD_BOT_TOKEN}
       DISCORD_GUILD_ID: ${DISCORD_GUILD_ID}
