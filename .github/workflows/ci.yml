@@ -12,7 +12,7 @@ jobs:
   qualidade:
     runs-on: ubuntu-latest
     env:
-      # prisma generate (postinstall) lê esta variável; valor fictício basta (não conecta).
+      # prisma generate lê esta variável; valor fictício basta (não conecta).
       DATABASE_URL: 'postgresql://user:pass@localhost:5432/db'
     steps:
       - uses: actions/checkout@v4
@@ -24,6 +24,11 @@ jobs:
 
       - name: Instalar dependências
         run: npm ci
+
+      - name: Gerar Prisma Client
+        # Necessário antes do typecheck/testes: gera os tipos de @prisma/client.
+        # (Não há postinstall que rode isso automaticamente.)
+        run: npx prisma generate
 
       - name: Lint
         run: npm run lint
