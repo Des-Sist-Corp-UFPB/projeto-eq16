@@ -59,9 +59,18 @@ app do colega continua valendo para produção (veja a seção 7 sobre compartil
 
 1. Aba **OAuth2 → URL Generator**.
 2. Em **Scopes** marque `bot`.
-3. Em **Bot Permissions** marque **Manage Channels** (Gerenciar Canais) — é o que
-   permite criar/excluir o canal da equipe e liberar/revogar acesso dos membros.
+3. Em **Bot Permissions** marque **as duas**:
+   - **Manage Channels** (Gerenciar Canais) — criar/excluir o canal da equipe.
+   - **Manage Roles** (Gerenciar Cargos) — **liberar/revogar o acesso dos membros**
+     ao canal. O Discord exige `Manage Roles` para editar as permissões de um
+     membro num canal (`PUT .../channels/{id}/permissions/{userId}`); só Manage
+     Channels **não** basta — o canal é criado, mas ninguém é adicionado depois.
+
+   (Para um ambiente de testes, marcar **Administrator** cobre as duas de uma vez.)
 4. Copie a URL gerada, abra no navegador, escolha o seu servidor de testes e autorize.
+
+> Se já convidou o bot só com Manage Channels, não precisa reconvidar: vá em
+> *Configurações do servidor → Cargos →* cargo do bot e ligue **Gerenciar Cargos**.
 
 ## 6. Interactions Endpoint (os botões Aceitar/Recusar)
 
