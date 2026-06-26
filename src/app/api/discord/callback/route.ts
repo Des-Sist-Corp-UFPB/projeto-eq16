@@ -13,7 +13,12 @@ import { logAudit, requestMeta, AuditAction } from '@/lib/audit';
 type Status = 'ok' | 'erro_login' | 'erro_state' | 'ja_vinculado' | 'erro';
 
 function redirectComStatus(req: NextRequest, status: Status): NextResponse {
-  const url = new URL('/inicio', req.url);
+  // Em produção o app roda atrás de um proxy reverso, então req.url traz o host
+  // interno do container (ex.: 0.0.0.0:8080) — inacessível pelo navegador. Usamos
+  // NEXTAUTH_URL (base pública) para montar o redirect; cai em req.url só no dev
+  // local quando NEXTAUTH_URL não está definido.
+  const base = process.env.NEXTAUTH_URL ?? req.url;
+  const url = new URL('/inicio', base);
   url.searchParams.set('discord', status);
   return NextResponse.redirect(url);
 }
