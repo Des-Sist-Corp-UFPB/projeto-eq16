@@ -445,6 +445,12 @@ Discord viram *no-op*.
 
 ---
 
+> 🧪 **Quer testar tudo localmente?** O passo a passo (o que configurar, como
+> rodar o MCP, os testes de carga e os unitários) está em
+> [`COMO-TESTAR-LOCALMENTE.md`](COMO-TESTAR-LOCALMENTE.md).
+
+---
+
 ## Servidor MCP (teamfinder-mcp)
 
 O projeto expõe suas operações centrais como um **servidor MCP** (Model Context
