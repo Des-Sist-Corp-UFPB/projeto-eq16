@@ -8,6 +8,9 @@ const globalForPrisma = globalThis as unknown as {
 function createPrismaClient() {
   const adapter = new PrismaPg({
     connectionString: process.env.DATABASE_URL!,
+    // Tamanho do pool do node-postgres (parâmetros na URL, como o antigo
+    // `maximum_pool_size`, são IGNORADOS pelo adapter). Default do pg: 10.
+    max: Number(process.env.DATABASE_POOL_MAX ?? 10),
   });
 
   return new PrismaClient({

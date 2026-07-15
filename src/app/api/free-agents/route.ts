@@ -33,10 +33,11 @@ export async function POST(req: NextRequest) {
   const { session, error } = await getSessionOrUnauthorized();
   if (error) return error;
 
-  // Vínculo do Discord é obrigatório (fonte da verdade no banco, não no token).
+  // Uma query só resolve as duas pré-condições (vínculo do Discord — fonte da
+  // verdade no banco, não no token — e "apenas um free agent por conta").
   const dono = await prisma.user.findUnique({
     where: { id: session!.user.id },
-    select: { discordId: true },
+    select: { discordId: true, freeAgents: { select: { id: true }, take: 1 } },
   });
   if (!dono?.discordId) {
     return NextResponse.json(
@@ -45,12 +46,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // Apenas um free agent por conta.
-  const jaExiste = await prisma.freeAgent.findFirst({
-    where: { userId: session!.user.id },
-    select: { id: true },
-  });
-  if (jaExiste) {
+  if (dono.freeAgents.length > 0) {
     return NextResponse.json(
       { erro: 'Você já possui um free agent cadastrado. Remova o atual para criar outro.' },
       { status: 409 }
