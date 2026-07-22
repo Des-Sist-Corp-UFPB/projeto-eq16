@@ -24,6 +24,43 @@ async function gerarUsernameUnico(base: string): Promise<string> {
   return candidato;
 }
 
+/**
+ * Cache em memória (TTL curto) do vínculo do Discord por usuário.
+ *
+ * Sem ele, todo usuário SEM Discord vinculado dispara uma query no banco em
+ * CADA requisição autenticada: o token guarda `discordId: null`, a condição
+ * "token ainda não tem discordId" fica sempre verdadeira e a recarga roda de
+ * novo (a mutação do token não é persistida no cookie em leituras).
+ * Com o cache, a autocorreção de sessões defasadas continua (em até 60s),
+ * mas o custo cai de 1 query/requisição para 1 query/minuto por usuário.
+ * Login e `update()` continuam forçando leitura fresca do banco.
+ */
+const VINCULO_TTL_MS = 60_000;
+const VINCULO_CACHE_MAX = 5_000;
+const vinculoCache = new Map<
+  string,
+  { discordId: string | null; discordUsername: string | null; expira: number }
+>();
+
+async function carregarVinculoDiscord(userId: string, forcarLeitura: boolean) {
+  const agora = Date.now();
+  const cacheado = vinculoCache.get(userId);
+  if (!forcarLeitura && cacheado && cacheado.expira > agora) return cacheado;
+
+  const dbUser = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { discordId: true, discordUsername: true },
+  });
+  const valor = {
+    discordId: dbUser?.discordId ?? null,
+    discordUsername: dbUser?.discordUsername ?? null,
+    expira: agora + VINCULO_TTL_MS,
+  };
+  if (vinculoCache.size >= VINCULO_CACHE_MAX) vinculoCache.clear();
+  vinculoCache.set(userId, valor);
+  return valor;
+}
+
 /** Best-effort: adiciona o usuário ao servidor (não bloqueia o login). */
 async function tentarAutoJoin(discordId: string, account: Account | null): Promise<void> {
   if (!account?.access_token) return;
@@ -125,16 +162,16 @@ export const authOptions: NextAuthOptions = {
         token.role = dbUser.role;
       }
 
-      // (Re)carrega o vínculo do Discord do banco: no login, no login-Discord, no update()
-      // e SEMPRE que o token ainda não tem discordId — assim sessões defasadas (ex.: vínculo
-      // feito sem passar por update()) se autocorrigem na próxima requisição, sem relogar.
+      // (Re)carrega o vínculo do Discord: no login, no login-Discord, no update()
+      // e enquanto o token não tem discordId — assim sessões defasadas (ex.: vínculo
+      // feito sem passar por update()) se autocorrigem sem relogar. A leitura passa
+      // pelo cache com TTL (ver carregarVinculoDiscord) para não custar 1 query por
+      // requisição; login/update() forçam leitura fresca.
       if (token.id && (user || account?.provider === 'discord' || trigger === 'update' || !token.discordId)) {
-        const dbUser = await prisma.user.findUnique({
-          where: { id: token.id as string },
-          select: { discordId: true, discordUsername: true },
-        });
-        token.discordId = dbUser?.discordId ?? null;
-        token.discordUsername = dbUser?.discordUsername ?? null;
+        const forcarLeitura = !!(user || account?.provider === 'discord' || trigger === 'update');
+        const vinculo = await carregarVinculoDiscord(token.id as string, forcarLeitura);
+        token.discordId = vinculo.discordId;
+        token.discordUsername = vinculo.discordUsername;
       }
 
       // Auditoria de login: apenas na entrada inicial (quando há `user`/`account`),

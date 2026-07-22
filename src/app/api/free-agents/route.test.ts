@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextResponse } from 'next/server';
 
 vi.mock('@/lib/prisma', () => ({
-  prisma: { freeAgent: { findMany: vi.fn(), findFirst: vi.fn(), create: vi.fn() }, user: { findUnique: vi.fn() } },
+  prisma: { freeAgent: { findMany: vi.fn(), create: vi.fn() }, user: { findUnique: vi.fn() } },
 }));
 vi.mock('@/lib/apiAuth', () => ({ getSessionOrUnauthorized: vi.fn() }));
 vi.mock('@/lib/audit', () => ({
@@ -17,7 +17,6 @@ import { getSessionOrUnauthorized } from '@/lib/apiAuth';
 import { logAudit } from '@/lib/audit';
 
 const faFindMany = vi.mocked(prisma.freeAgent.findMany);
-const faFindFirst = vi.mocked(prisma.freeAgent.findFirst);
 const faCreate = vi.mocked(prisma.freeAgent.create);
 const userFind = vi.mocked(prisma.user.findUnique);
 const getSession = vi.mocked(getSessionOrUnauthorized);
@@ -29,8 +28,7 @@ function sessao() {
 /** caminho comum: logado + discord vinculado + ainda sem free agent. */
 function vinculadoSemFA() {
   sessao();
-  userFind.mockResolvedValue({ discordId: 'd1' } as never);
-  faFindFirst.mockResolvedValue(null);
+  userFind.mockResolvedValue({ discordId: 'd1', freeAgents: [] } as never);
 }
 
 beforeEach(() => vi.clearAllMocks());
@@ -53,14 +51,13 @@ describe('POST /api/free-agents', () => {
 
   it('403 sem Discord vinculado', async () => {
     sessao();
-    userFind.mockResolvedValue({ discordId: null } as never);
+    userFind.mockResolvedValue({ discordId: null, freeAgents: [] } as never);
     expect((await POST(req({}))).status).toBe(403);
   });
 
   it('409 quando já possui um free agent', async () => {
     sessao();
-    userFind.mockResolvedValue({ discordId: 'd1' } as never);
-    faFindFirst.mockResolvedValue({ id: 'fa-existente' } as never);
+    userFind.mockResolvedValue({ discordId: 'd1', freeAgents: [{ id: 'fa-existente' }] } as never);
     expect((await POST(req({}))).status).toBe(409);
   });
 

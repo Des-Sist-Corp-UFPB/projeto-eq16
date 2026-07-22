@@ -445,6 +445,59 @@ Discord viram *no-op*.
 
 ---
 
+> 🧪 **Quer testar tudo localmente?** O passo a passo (o que configurar, como
+> rodar o MCP, os testes de carga e os unitários) está em
+> [`COMO-TESTAR-LOCALMENTE.md`](COMO-TESTAR-LOCALMENTE.md).
+
+---
+
+## Servidor MCP (teamfinder-mcp)
+
+O projeto expõe suas operações centrais como um **servidor MCP** (Model Context
+Protocol) para assistentes de IA — implementação da proposta do
+[`MCP-IDEIA.md`](MCP-IDEIA.md):
+
+- **Tools da API local** (casca fina sobre as rotas existentes):
+  `buscar_free_agents`, `listar_equipes` e `sugerir_composicao` (rankeia
+  candidatos por vaga e propõe escalação sem repetir jogador).
+- **Tools de estatística** (`perfil_invocador`, `partidas_recentes`): enquanto a
+  **Riot não libera nossa chave de API**, o servidor atua como *cliente* do
+  [MCP público do op.gg](https://op.gg/open-source/opgg-mcp) e faz proxy das
+  consultas de perfil/partidas (região BR) — os nicknames `Nome#TAG` do site já
+  são Riot IDs. `sugerir_composicao(incluir_stats=true)` combina os free agents
+  locais com o rank real de cada um.
+- **Resources**: `teamfinder://free-agents` e `teamfinder://equipes`.
+- Todas as tools são **somente leitura** (`readOnlyHint`).
+
+```bash
+npm run mcp              # inicia o servidor (stdio)
+npm run mcp:inspector    # debug visual com o MCP Inspector
+```
+
+> Documentação completa (arquitetura, config do Claude Desktop, exemplos):
+> [`mcp/README.md`](mcp/README.md). A lógica de composição é testada por
+> unidade em [`mcp/compose.test.ts`](mcp/compose.test.ts).
+
+---
+
+## Teste de Carga e Performance
+
+Cenário k6 com **nível de carga configurável** (`smoke`, `leve`, `media`,
+`pesada`, `stress` — ou `VUS`/`DURATION` customizados), exercitando as rotas
+reais (listagens públicas + login NextAuth + rota autenticada):
+
+```bash
+npm run loadtest             # 20 VUs (media)
+npm run loadtest:stress      # rampa até 100 VUs
+k6 run -e VUS=35 -e DURATION=2m loadtest/carga.js
+```
+
+Como rodar, níveis, metas (p95/erros) e leitura dos resultados:
+[`loadtest/README.md`](loadtest/README.md). Resultados medidos e otimizações
+aplicadas (índices, cache do vínculo Discord, pool): [`loadtest/RESULTADOS.md`](loadtest/RESULTADOS.md).
+
+---
+
 ## Observabilidade (OpenTelemetry)
 
 O projeto é instrumentado com **OpenTelemetry**: emite *traces*, *métricas* e

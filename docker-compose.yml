@@ -23,7 +23,10 @@ services:
     ports:
       - "127.0.0.1:8116:8080"
     environment:
-      DATABASE_URL: postgresql://${DATABASE_USERNAME}:${DATABASE_PASSWORD}@db:5432/eq16?maximum_pool_size=5
+      # Sem parâmetros de pool na URL: o adapter pg IGNORA `maximum_pool_size`
+      # (era sintaxe do Prisma clássico). O pool é configurado pela env abaixo.
+      DATABASE_URL: postgresql://${DATABASE_USERNAME}:${DATABASE_PASSWORD}@db:5432/eq16
+      DATABASE_POOL_MAX: "5"
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
       NEXTAUTH_URL: ${NEXTAUTH_URL}
       # Integração com Discord (login/vínculo OAuth + bot de canais por equipe).

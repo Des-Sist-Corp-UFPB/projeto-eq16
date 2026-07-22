@@ -7,7 +7,7 @@ export default defineConfig({
     // Camada de lógica/rotas roda no Node (sem DOM). Componentes React, se um dia
     // forem testados, podem usar jsdom por arquivo (`// @vitest-environment jsdom`).
     environment: 'node',
-    include: ['src/**/*.{test,spec}.ts'],
+    include: ['src/**/*.{test,spec}.ts', 'mcp/**/*.{test,spec}.ts'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'text-summary', 'html'],
