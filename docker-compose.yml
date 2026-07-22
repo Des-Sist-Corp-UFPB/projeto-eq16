@@ -37,6 +37,16 @@ services:
       DISCORD_BOT_TOKEN: ${DISCORD_BOT_TOKEN}
       DISCORD_GUILD_ID: ${DISCORD_GUILD_ID}
       DISCORD_TEAMS_CATEGORY_ID: ${DISCORD_TEAMS_CATEGORY_ID}
+      # Observabilidade (OpenTelemetry) — lidas por src/instrumentation.ts.
+      # Aponte OTEL_EXPORTER_OTLP_ENDPOINT para o backend remoto da disciplina
+      # ou, se subir o otel-lgtm local (profile "observability"), para http://otel-lgtm:4318.
+      OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT}
+      OTEL_EXPORTER_OTLP_PROTOCOL: ${OTEL_EXPORTER_OTLP_PROTOCOL}
+      OTEL_EXPORTER_OTLP_HEADERS: ${OTEL_EXPORTER_OTLP_HEADERS}
+      OTEL_TRACES_EXPORTER: ${OTEL_TRACES_EXPORTER}
+      OTEL_METRICS_EXPORTER: ${OTEL_METRICS_EXPORTER}
+      OTEL_LOGS_EXPORTER: ${OTEL_LOGS_EXPORTER}
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8080/api/health || exit 1"]
       interval: 30s
@@ -46,6 +56,21 @@ services:
     depends_on:
       db:
         condition: service_healthy
+
+  # Backend de observabilidade LOCAL (Passo 1 do tutorial de OpenTelemetry).
+  # Opcional: só sobe se você pedir o profile "observability". Por padrão o
+  # projeto usa o backend REMOTO da disciplina (ver .env). Para usar o local:
+  #   docker compose --profile observability up -d otel-lgtm
+  # e aponte OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-lgtm:4318 (sem o header de auth).
+  # Grafana em http://localhost:3000 (admin / admin).
+  otel-lgtm:
+    image: grafana/otel-lgtm
+    container_name: otel-lgtm
+    profiles: ["observability"]
+    ports:
+      - "3000:3000"   # Grafana (interface web)
+      - "4317:4317"   # OTLP via gRPC
+      - "4318:4318"   # OTLP via HTTP
 
 volumes:
   postgres_data:

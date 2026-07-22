@@ -445,6 +445,18 @@ Discord viram *no-op*.
 
 ---
 
+## Observabilidade (OpenTelemetry)
+
+O projeto é instrumentado com **OpenTelemetry**: emite *traces*, *métricas* e
+*logs* via OTLP. A instrumentação automática ([`src/instrumentation.ts`](src/instrumentation.ts))
+cobre HTTP e as queries SQL (driver `pg`), e há **spans manuais** no fluxo de
+"fechar vaga" ([`src/lib/candidaturas.ts`](src/lib/candidaturas.ts)). O destino é
+configurado pelas variáveis `OTEL_*` do `.env`.
+
+📄 Guia completo (como rodar, backend local `otel-lgtm`, e os entregáveis): **[OBSERVABILIDADE.md](OBSERVABILIDADE.md)**.
+
+---
+
 ## Cobertura de Testes
 
 A suíte roda com **Vitest** (provider **v8**) e cobre a **camada crítica** (regras de
