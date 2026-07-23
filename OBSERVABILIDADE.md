@@ -75,7 +75,17 @@ OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
 # dentro do Docker (container app), use http://otel-lgtm:4318
 ```
 
-Grafana em **http://localhost:3000** (usuário/senha: `admin` / `admin`).
+Grafana em **http://localhost:3001** (usuário/senha: `admin` / `admin`).
+
+> ⚠️ **Cuidado com o mapeamento de portas.** O container expõe TRÊS coisas:
+> `3000` = UI do Grafana, `4318` = receptor OTLP HTTP, `4317` = OTLP gRPC.
+> O app entrega os traces na **4318** — se você mapear `-p 4318:3000` (invertido),
+> a 4318 do host vira a UI do Grafana e **nenhum trace entra no Tempo**. Se subir
+> o container na mão (sem o compose), use:
+> ```bash
+> docker run -d --name otel-lgtm -p 3001:3000 -p 4317:4317 -p 4318:4318 grafana/otel-lgtm
+> ```
+> (Grafana no host 3001 porque o `next dev` já ocupa a 3000.)
 
 ---
 

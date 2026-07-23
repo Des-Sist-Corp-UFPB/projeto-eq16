@@ -65,15 +65,19 @@ services:
   # projeto usa o backend REMOTO da disciplina (ver .env). Para usar o local:
   #   docker compose --profile observability up -d otel-lgtm
   # e aponte OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-lgtm:4318 (sem o header de auth).
-  # Grafana em http://localhost:3000 (admin / admin).
+  #
+  # ATENÇÃO às portas: o host 4318/4317 tem que ir para o container 4318/4317
+  # (receptor OTLP) — NÃO para a 3000. A UI do Grafana fica no host 3001 (e não
+  # 3000) de propósito, para não conflitar com o `next dev`, que usa a 3000.
+  # Grafana em http://localhost:3001 (admin / admin).
   otel-lgtm:
     image: grafana/otel-lgtm
     container_name: otel-lgtm
     profiles: ["observability"]
     ports:
-      - "3000:3000"   # Grafana (interface web)
+      - "3001:3000"   # Grafana (interface web) — host 3001 p/ não bater com o next dev
       - "4317:4317"   # OTLP via gRPC
-      - "4318:4318"   # OTLP via HTTP
+      - "4318:4318"   # OTLP via HTTP (é aqui que o app entrega os traces)
 
 volumes:
   postgres_data:
