@@ -5,6 +5,7 @@ import { FreeAgentData, Lane } from '@/types';
 import { FreeAgentInfoResume } from '@/components/FreeAgentInfoResume';
 import { LaneFilter } from '@/components/LaneFilter';
 import { PageGlow } from '@/components/PageGlow';
+import { RecomendacoesFreeAgents } from '@/components/Recomendacoes';
 
 export default function FreeAgentsPage() {
   const [freeAgents, setFreeAgents] = useState<FreeAgentData[]>([]);
@@ -48,6 +49,9 @@ export default function FreeAgentsPage() {
         <h1 className="font-display text-2xl font-extrabold uppercase tracking-[-0.02em] text-text-main sm:text-3xl">Free Agents Disponíveis</h1>
         <p className="mt-2 text-sm text-text-muted font-light">Veja os jogadores disponíveis e entre em contato.</p>
       </div>
+
+      {/* Jogadores que encaixam nas vagas da equipe do usuário (some se não se aplica). */}
+      <RecomendacoesFreeAgents />
 
       {!carregando && freeAgents.length > 0 && (
         <LaneFilter selected={rotasFiltro} onToggle={toggleRota} onClear={() => setRotasFiltro([])} />

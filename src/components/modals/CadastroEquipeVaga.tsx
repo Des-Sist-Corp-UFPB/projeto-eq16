@@ -8,6 +8,7 @@ import { PositionSelector } from '@/components/PositionSelector';
 import { PLAYER_POSITIONS } from '@/constants/positions';
 import { ModalSucesso } from '@/components/modals/ModalSucesso';
 import { VincularDiscordGate } from '@/components/modals/VincularDiscordGate';
+import { RecomendacoesFreeAgents } from '@/components/Recomendacoes';
 import { isNicknameValido, NICKNAME_HINT } from '@/constants/links';
 
 interface CadastroEquipeVagaProps {
@@ -27,6 +28,11 @@ export function CadastroEquipeVaga({ open, onClose, onSuccess }: CadastroEquipeV
   const [erro, setErro] = useState('');
   const [enviando, setEnviando] = useState(false);
   const [mostrarSucesso, setMostrarSucesso] = useState(false);
+  // Vagas "congeladas" no clique de "Ver free agents recomendados". A busca só
+  // roda na montagem, então o contador entra no `key`: cada clique remonta o
+  // componente e refaz a busca, mesmo com as vagas inalteradas.
+  const [lanesRec, setLanesRec] = useState<Lane[] | null>(null);
+  const [buscaRec, setBuscaRec] = useState(0);
 
   if (!open && !mostrarSucesso) return null;
 
@@ -55,7 +61,7 @@ export function CadastroEquipeVaga({ open, onClose, onSuccess }: CadastroEquipeV
       });
       if (!res.ok) { const data = await res.json(); setErro(data.erro || 'Erro ao cadastrar.'); return; }
 
-      setNome(''); setNicknameCapitao(''); setVagasLanes([]);
+      setNome(''); setNicknameCapitao(''); setVagasLanes([]); setLanesRec(null); setBuscaRec(0);
       onSuccess(); onClose(); setMostrarSucesso(true);
     } catch { setErro('Erro de conexão.'); } finally { setEnviando(false); }
   };
@@ -113,6 +119,33 @@ export function CadastroEquipeVaga({ open, onClose, onSuccess }: CadastroEquipeV
                     Adicionar Vaga
                   </button>
                 )}
+              </div>
+            )}
+          </div>
+
+          {/* Recomendações: free agents que encaixam nas vagas abertas (base local + elo op.gg). */}
+          <div className="border-t border-pink-subtle/10 pt-4">
+            <button
+              type="button"
+              onClick={() => {
+                if (vagasLanes.length === 0) return;
+                setLanesRec([...vagasLanes]);
+                setBuscaRec((n) => n + 1);
+              }}
+              disabled={vagasLanes.length === 0}
+              title={vagasLanes.length > 0 ? undefined : 'Adicione ao menos uma vaga primeiro'}
+              className="w-full rounded-lg border border-cyan/30 bg-cyan-dim py-2.5 text-xs font-bold uppercase tracking-widest text-cyan transition-colors hover:bg-cyan/20 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {lanesRec ? 'Atualizar free agents recomendados' : 'Ver free agents recomendados'}
+            </button>
+            {vagasLanes.length === 0 && (
+              <p className="mt-1.5 text-center text-[11px] font-light text-text-muted/70">
+                Adicione as vagas abertas para ver jogadores que combinam com o time.
+              </p>
+            )}
+            {lanesRec && (
+              <div className="mt-3 max-h-56 overflow-y-auto pr-1">
+                <RecomendacoesFreeAgents key={`${lanesRec.join(',')}#${buscaRec}`} params={{ lanes: lanesRec }} />
               </div>
             )}
           </div>

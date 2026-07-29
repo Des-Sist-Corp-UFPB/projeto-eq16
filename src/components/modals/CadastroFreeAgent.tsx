@@ -6,6 +6,7 @@ import { Lane } from '@/types';
 import { PositionSelector } from '@/components/PositionSelector';
 import { ModalSucesso } from '@/components/modals/ModalSucesso';
 import { VincularDiscordGate } from '@/components/modals/VincularDiscordGate';
+import { RecomendacoesEquipes } from '@/components/Recomendacoes';
 import { isNicknameValido, NICKNAME_HINT } from '@/constants/links';
 
 interface CadastroFreeAgentProps {
@@ -22,6 +23,15 @@ export function CadastroFreeAgent({ open, onClose, onSuccess }: CadastroFreeAgen
   const [erro, setErro] = useState('');
   const [enviando, setEnviando] = useState(false);
   const [mostrarSucesso, setMostrarSucesso] = useState(false);
+  // Critérios "congelados" no clique de "Ver equipes recomendadas". A busca só
+  // roda na montagem, então o contador entra no `key`: cada clique remonta o
+  // componente e refaz a busca, mesmo com os critérios inalterados.
+  const [criteriosRec, setCriteriosRec] = useState<{
+    lane: Lane;
+    laneSecundaria: Lane | null;
+    nickname: string;
+  } | null>(null);
+  const [buscaRec, setBuscaRec] = useState(0);
 
   if (!open && !mostrarSucesso) return null;
 
@@ -31,6 +41,20 @@ export function CadastroFreeAgent({ open, onClose, onSuccess }: CadastroFreeAgen
   }
 
   const ehFill = lanePrincipal === 'FILL';
+
+  // Recomendações: precisa de nick válido + rota(s) definidas (mesmas regras do submit).
+  const podeRecomendar =
+    !!lanePrincipal && isNicknameValido(nickname) && (ehFill || !!laneSecundaria);
+
+  const verRecomendadas = () => {
+    if (!podeRecomendar || !lanePrincipal) return;
+    setCriteriosRec({
+      lane: lanePrincipal,
+      laneSecundaria: ehFill ? null : laneSecundaria,
+      nickname: nickname.trim(),
+    });
+    setBuscaRec((n) => n + 1);
+  };
 
   const handleSubmit = async () => {
     setErro('');
@@ -74,6 +98,8 @@ export function CadastroFreeAgent({ open, onClose, onSuccess }: CadastroFreeAgen
       setNickname('');
       setLanePrincipal(null);
       setLaneSecundaria(null);
+      setCriteriosRec(null);
+      setBuscaRec(0);
       onSuccess();
       onClose();
       setMostrarSucesso(true);
@@ -135,6 +161,29 @@ export function CadastroFreeAgent({ open, onClose, onSuccess }: CadastroFreeAgen
               <p className="mt-2 text-center text-[11px] font-light text-text-muted/70">
                 Como Fill, você joga qualquer rota — sem necessidade de secundária.
               </p>
+            )}
+          </div>
+
+          {/* Recomendações: equipes com vaga na rota escolhida (base local + elo op.gg). */}
+          <div className="border-t border-cyan/10 pt-4">
+            <button
+              type="button"
+              onClick={verRecomendadas}
+              disabled={!podeRecomendar}
+              title={podeRecomendar ? undefined : 'Preencha o nickname e a(s) rota(s) primeiro'}
+              className="w-full rounded-lg border border-pink-subtle/30 bg-pink-subtle/10 py-2.5 text-xs font-bold uppercase tracking-widest text-pink-subtle transition-colors hover:bg-pink-subtle/20 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {criteriosRec ? 'Atualizar equipes recomendadas' : 'Ver equipes recomendadas'}
+            </button>
+            {!podeRecomendar && (
+              <p className="mt-1.5 text-center text-[11px] font-light text-text-muted/70">
+                Defina o nickname e a(s) rota(s) para ver equipes que combinam com você.
+              </p>
+            )}
+            {criteriosRec && (
+              <div className="mt-3 max-h-56 overflow-y-auto pr-1">
+                <RecomendacoesEquipes key={`${JSON.stringify(criteriosRec)}#${buscaRec}`} params={criteriosRec} />
+              </div>
             )}
           </div>
 
