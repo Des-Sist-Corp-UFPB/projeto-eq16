@@ -6,16 +6,25 @@ vi.mock('@/lib/prisma', () => ({
       create: vi.fn(),
       count: vi.fn(),
       findMany: vi.fn(),
+      groupBy: vi.fn(),
     },
   },
 }));
 
 import { prisma } from '@/lib/prisma';
-import { logAudit, requestMeta, listAuditLogs, listAuditActions, AuditAction } from '@/lib/audit';
+import {
+  logAudit,
+  requestMeta,
+  listAuditLogs,
+  listAuditActions,
+  listAuditActionCounts,
+  AuditAction,
+} from '@/lib/audit';
 
 const create = vi.mocked(prisma.auditLog.create);
 const count = vi.mocked(prisma.auditLog.count);
 const findMany = vi.mocked(prisma.auditLog.findMany);
+const groupBy = vi.mocked(prisma.auditLog.groupBy);
 
 beforeEach(() => vi.clearAllMocks());
 
@@ -104,5 +113,18 @@ describe('listAuditActions', () => {
   it('retorna as ações distintas', async () => {
     findMany.mockResolvedValue([{ action: 'a' }, { action: 'b' }] as never);
     expect(await listAuditActions()).toEqual(['a', 'b']);
+  });
+});
+
+describe('listAuditActionCounts', () => {
+  it('achata o groupBy em { action, total }', async () => {
+    groupBy.mockResolvedValue([
+      { action: 'auth.login', _count: { _all: 7 } },
+      { action: 'equipe.create', _count: { _all: 2 } },
+    ] as never);
+    expect(await listAuditActionCounts()).toEqual([
+      { action: 'auth.login', total: 7 },
+      { action: 'equipe.create', total: 2 },
+    ]);
   });
 });

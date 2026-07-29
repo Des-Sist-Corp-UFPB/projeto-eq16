@@ -2,7 +2,8 @@ import { getServerSession } from 'next-auth';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { authOptions } from '@/lib/auth';
-import { listAuditLogs, listAuditActions } from '@/lib/audit';
+import { listAuditLogs, listAuditActionCounts } from '@/lib/audit';
+import { PageGlow } from '@/components/PageGlow';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,6 +21,7 @@ const ROTULO_ACAO: Record<string, string> = {
   'freeagent.create': 'Free agent criado',
   'freeagent.delete': 'Free agent removido',
   'candidatura.create': 'Solicitação enviada',
+  'candidatura.invite': 'Convite enviado',
   'candidatura.accept': 'Candidatura aceita',
   'candidatura.reject': 'Candidatura recusada',
 };
@@ -28,12 +30,121 @@ function rotulo(action: string): string {
   return ROTULO_ACAO[action] ?? action;
 }
 
+/** Categoria visual da ação — define a cor do chip/badge (paleta do site). */
+type Categoria = 'conta' | 'equipe' | 'freeagent' | 'candidatura';
+
+function categoriaDaAcao(action: string): Categoria {
+  if (action.startsWith('equipe.')) return 'equipe';
+  if (action.startsWith('freeagent.')) return 'freeagent';
+  if (action.startsWith('candidatura.')) return 'candidatura';
+  return 'conta'; // user.*, auth.*, password.*, discord.*
+}
+
+/** Classes por categoria: badge da tabela, chip selecionado e hover do filtro. */
+const COR_CATEGORIA: Record<Categoria, { badge: string; chipAtivo: string; chipHover: string }> = {
+  conta: {
+    badge: 'border-purple-light/30 bg-purple-dim text-purple-light',
+    chipAtivo: 'border-purple-light/50 bg-purple-dim text-purple-light',
+    chipHover: 'hover:border-purple-light/30 hover:text-purple-light',
+  },
+  equipe: {
+    badge: 'border-pink-subtle/30 bg-pink-subtle/10 text-pink-subtle',
+    chipAtivo: 'border-pink-subtle/50 bg-pink-subtle/10 text-pink-subtle',
+    chipHover: 'hover:border-pink-subtle/30 hover:text-pink-subtle',
+  },
+  freeagent: {
+    badge: 'border-cyan/30 bg-cyan-dim text-cyan',
+    chipAtivo: 'border-cyan/50 bg-cyan-dim text-cyan',
+    chipHover: 'hover:border-cyan/30 hover:text-cyan',
+  },
+  candidatura: {
+    badge: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400',
+    chipAtivo: 'border-emerald-500/50 bg-emerald-500/10 text-emerald-400',
+    chipHover: 'hover:border-emerald-500/30 hover:text-emerald-400',
+  },
+};
+
 function formatarData(data: Date): string {
   return new Intl.DateTimeFormat('pt-BR', {
     dateStyle: 'short',
     timeStyle: 'medium',
     timeZone: 'America/Sao_Paulo',
   }).format(data);
+}
+
+/** "há 5 min", "há 3 h", ... (página é force-dynamic: renderiza a cada acesso). */
+function tempoRelativo(data: Date): string {
+  const seg = Math.floor((Date.now() - data.getTime()) / 1000);
+  if (seg < 60) return 'agora mesmo';
+  const min = Math.floor(seg / 60);
+  if (min < 60) return `há ${min} min`;
+  const h = Math.floor(min / 60);
+  if (h < 24) return `há ${h} h`;
+  const d = Math.floor(h / 24);
+  if (d < 30) return `há ${d} dia${d === 1 ? '' : 's'}`;
+  const m = Math.floor(d / 30);
+  if (m < 12) return `há ${m} ${m === 1 ? 'mês' : 'meses'}`;
+  const a = Math.floor(m / 12);
+  return `há ${a} ano${a === 1 ? '' : 's'}`;
+}
+
+/** Janela de páginas para a paginação numerada: 1 … atual-1 atual atual+1 … última. */
+function paginasVisiveis(atual: number, total: number): (number | '…')[] {
+  const candidatas = [1, atual - 1, atual, atual + 1, total];
+  const paginas = [...new Set(candidatas)].filter((p) => p >= 1 && p <= total).sort((a, b) => a - b);
+  const saida: (number | '…')[] = [];
+  let anterior = 0;
+  for (const p of paginas) {
+    if (p - anterior > 1) saida.push('…');
+    saida.push(p);
+    anterior = p;
+  }
+  return saida;
+}
+
+/** Metadata do log: chips para valores simples + JSON completo sob demanda. */
+function Detalhes({ metadata }: { metadata: unknown }) {
+  if (metadata == null) return <span className="text-text-muted/50">—</span>;
+
+  const objeto =
+    typeof metadata === 'object' && !Array.isArray(metadata)
+      ? (metadata as Record<string, unknown>)
+      : null;
+  const simples = objeto
+    ? Object.entries(objeto).filter(
+        ([, v]) => v === null || ['string', 'number', 'boolean'].includes(typeof v)
+      )
+    : [];
+  const visiveis = simples.slice(0, 3);
+  const ocultos = objeto ? Object.keys(objeto).length - visiveis.length : 0;
+
+  return (
+    <div className="max-w-[300px]">
+      {visiveis.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          {visiveis.map(([chave, valor]) => (
+            <span
+              key={chave}
+              className="inline-flex max-w-full items-baseline gap-1 rounded border border-cyan/10 bg-navy px-1.5 py-0.5 text-[11px]"
+            >
+              <span className="shrink-0 text-text-muted">{chave}:</span>
+              <span className="truncate text-text-main">{String(valor ?? '—')}</span>
+            </span>
+          ))}
+          {ocultos > 0 && <span className="px-1 text-[11px] text-text-muted">+{ocultos}</span>}
+        </div>
+      )}
+      <details className="group mt-1">
+        <summary className="cursor-pointer list-none text-[11px] font-semibold uppercase tracking-wider text-text-muted/70 transition-colors hover:text-cyan">
+          <span className="group-open:hidden">ver JSON ▾</span>
+          <span className="hidden group-open:inline">ocultar ▴</span>
+        </summary>
+        <pre className="mt-1 max-h-48 overflow-auto whitespace-pre-wrap break-words rounded-lg border border-cyan/10 bg-navy px-2 py-1.5 text-[11px] leading-relaxed text-text-muted">
+          {JSON.stringify(metadata, null, 2)}
+        </pre>
+      </details>
+    </div>
+  );
 }
 
 interface PageProps {
@@ -51,8 +162,10 @@ export default async function AuditoriaPage({ searchParams }: PageProps) {
 
   const [{ logs, total, totalPages, page: paginaAtual }, acoes] = await Promise.all([
     listAuditLogs({ page, action }),
-    listAuditActions(),
+    listAuditActionCounts(),
   ]);
+
+  const totalGeral = acoes.reduce((soma, a) => soma + a.total, 0);
 
   const queryComAcao = (a?: string) => {
     const sp = new URLSearchParams();
@@ -69,99 +182,178 @@ export default async function AuditoriaPage({ searchParams }: PageProps) {
 
   return (
     <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col px-4 py-8 pt-16 sm:pt-20">
+      <PageGlow accent="purple" />
+
+      {/* Cabeçalho */}
       <div className="mb-6">
-        <h1 className="font-display text-2xl font-extrabold uppercase tracking-[-0.02em] text-text-main sm:text-3xl">
+        <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-purple-light">
+          Área administrativa
+        </p>
+        <h1 className="font-display mt-1 text-2xl font-extrabold uppercase tracking-[-0.02em] text-text-main sm:text-3xl">
           Log de Auditoria
         </h1>
         <p className="mt-2 text-sm font-light text-text-muted">
-          Trilha de ações sensíveis na plataforma. {total} evento{total === 1 ? '' : 's'} registrado
-          {total === 1 ? '' : 's'}.
+          Trilha imutável de ações sensíveis: quem fez o quê, quando e de onde.
         </p>
       </div>
 
+      {/* Resumo */}
+      <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <div className="rounded-xl border border-purple-light/15 bg-navy-light p-4">
+          <p className="text-[11px] font-bold uppercase tracking-widest text-text-muted">Eventos registrados</p>
+          <p className="font-display mt-1 text-2xl font-extrabold text-purple-light">{totalGeral}</p>
+        </div>
+        <div className="rounded-xl border border-cyan/15 bg-navy-light p-4">
+          <p className="text-[11px] font-bold uppercase tracking-widest text-text-muted">Tipos de ação</p>
+          <p className="font-display mt-1 text-2xl font-extrabold text-cyan">{acoes.length}</p>
+        </div>
+        <div className="rounded-xl border border-pink-subtle/15 bg-navy-light p-4">
+          <p className="text-[11px] font-bold uppercase tracking-widest text-text-muted">
+            {action ? `Filtro: ${rotulo(action)}` : 'Exibindo'}
+          </p>
+          <p className="font-display mt-1 text-2xl font-extrabold text-pink-subtle">
+            {total}
+            <span className="ml-2 align-middle text-xs font-normal normal-case tracking-normal text-text-muted">
+              evento{total === 1 ? '' : 's'} · pág. {paginaAtual}/{totalPages}
+            </span>
+          </p>
+        </div>
+      </div>
+
       {/* Filtro por ação */}
-      <div className="mb-5 flex flex-wrap gap-2">
-        <Link
-          href="/admin/auditoria"
-          className={`rounded-lg border px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide transition-colors ${
-            !action
-              ? 'border-cyan/40 bg-cyan-dim text-cyan'
-              : 'border-transparent text-text-muted hover:border-cyan/20 hover:text-text-main'
-          }`}
-        >
-          Todas
-        </Link>
-        {acoes.map((a) => (
+      <div className="mb-5 rounded-2xl border border-purple-light/10 bg-navy-light/50 p-4">
+        <p className="mb-3 text-xs font-bold uppercase tracking-widest text-text-muted">
+          Filtrar por ação
+        </p>
+        <div className="flex flex-wrap gap-2">
           <Link
-            key={a}
-            href={`/admin/auditoria${queryComAcao(a)}`}
+            href="/admin/auditoria"
             className={`rounded-lg border px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide transition-colors ${
-              action === a
-                ? 'border-cyan/40 bg-cyan-dim text-cyan'
-                : 'border-transparent text-text-muted hover:border-cyan/20 hover:text-text-main'
+              !action
+                ? 'border-purple-light/50 bg-purple-dim text-purple-light'
+                : 'border-input-border bg-input-bg text-text-muted hover:border-purple-light/30 hover:text-text-main'
             }`}
           >
-            {rotulo(a)}
+            Todas <span className="ml-1 font-normal opacity-70">{totalGeral}</span>
           </Link>
-        ))}
+          {acoes.map(({ action: a, total: n }) => {
+            const cor = COR_CATEGORIA[categoriaDaAcao(a)];
+            return (
+              <Link
+                key={a}
+                href={`/admin/auditoria${queryComAcao(a)}`}
+                className={`rounded-lg border px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide transition-colors ${
+                  action === a
+                    ? cor.chipAtivo
+                    : `border-input-border bg-input-bg text-text-muted ${cor.chipHover}`
+                }`}
+              >
+                {rotulo(a)} <span className="ml-1 font-normal opacity-70">{n}</span>
+              </Link>
+            );
+          })}
+        </div>
       </div>
 
       {/* Tabela */}
-      <div className="overflow-x-auto rounded-xl border border-cyan/10 bg-navy-light">
-        <table className="w-full min-w-[720px] border-collapse text-left text-sm">
+      <div className="overflow-x-auto rounded-xl border border-purple-light/10 bg-navy-light">
+        <table className="w-full min-w-[760px] border-collapse text-left text-sm">
           <thead>
-            <tr className="border-b border-cyan/10 text-[11px] uppercase tracking-wider text-text-muted">
+            <tr className="border-b border-purple-light/10 text-[11px] uppercase tracking-wider text-text-muted">
               <th className="px-4 py-3 font-bold">Quando</th>
               <th className="px-4 py-3 font-bold">Ação</th>
               <th className="px-4 py-3 font-bold">Ator</th>
               <th className="px-4 py-3 font-bold">Alvo</th>
               <th className="px-4 py-3 font-bold">Detalhes</th>
-              <th className="px-4 py-3 font-bold">IP</th>
+              <th className="px-4 py-3 font-bold">Origem</th>
             </tr>
           </thead>
           <tbody>
             {logs.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-4 py-10 text-center text-text-muted">
-                  Nenhum evento registrado ainda.
+                <td colSpan={6} className="px-4 py-14 text-center">
+                  <p className="text-base text-text-main">Nenhum evento por aqui.</p>
+                  <p className="mt-1 text-sm font-light text-text-muted">
+                    {action
+                      ? 'Nada registrado para esse tipo de ação ainda.'
+                      : 'As ações sensíveis da plataforma aparecerão aqui.'}
+                  </p>
                 </td>
               </tr>
             ) : (
-              logs.map((log) => (
-                <tr key={log.id} className="border-b border-cyan/5 align-top last:border-0 hover:bg-navy-lighter/40">
-                  <td className="whitespace-nowrap px-4 py-3 text-text-muted">{formatarData(log.createdAt)}</td>
-                  <td className="px-4 py-3">
-                    <span className="rounded bg-cyan-dim px-2 py-0.5 text-xs font-semibold text-cyan">
-                      {rotulo(log.action)}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-text-main">
-                    {log.actor?.username ?? log.actorLabel ?? (
-                      <span className="text-text-muted">sistema</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 text-text-muted">
-                    {log.targetType ? (
-                      <span>
-                        {log.targetType}
-                        {log.targetId ? <span className="opacity-60"> · {log.targetId.slice(0, 8)}</span> : null}
+              logs.map((log) => {
+                const nomeAtor = log.actor?.username ?? log.actorLabel;
+                return (
+                  <tr
+                    key={log.id}
+                    className="border-b border-purple-light/5 align-top last:border-0 hover:bg-navy-lighter/40"
+                  >
+                    <td className="whitespace-nowrap px-4 py-3">
+                      <p className="text-text-main">{formatarData(log.createdAt)}</p>
+                      <p className="text-[11px] font-light text-text-muted">{tempoRelativo(log.createdAt)}</p>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={`inline-flex whitespace-nowrap rounded-md border px-2 py-0.5 text-xs font-semibold ${COR_CATEGORIA[categoriaDaAcao(log.action)].badge}`}
+                        title={log.action}
+                      >
+                        {rotulo(log.action)}
                       </span>
-                    ) : (
-                      '—'
-                    )}
-                  </td>
-                  <td className="px-4 py-3">
-                    {log.metadata ? (
-                      <code className="block max-w-[280px] overflow-x-auto whitespace-pre-wrap break-words rounded bg-navy px-2 py-1 text-[11px] text-text-muted">
-                        {JSON.stringify(log.metadata)}
-                      </code>
-                    ) : (
-                      <span className="text-text-muted">—</span>
-                    )}
-                  </td>
-                  <td className="whitespace-nowrap px-4 py-3 text-text-muted">{log.ip ?? '—'}</td>
-                </tr>
-              ))
+                    </td>
+                    <td className="px-4 py-3">
+                      {nomeAtor ? (
+                        <span className="inline-flex items-center gap-2">
+                          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-purple-light/30 bg-purple-dim text-[11px] font-bold uppercase text-purple-light">
+                            {nomeAtor.charAt(0)}
+                          </span>
+                          <span className="text-text-main">{nomeAtor}</span>
+                          {!log.actor && (
+                            <span
+                              className="text-[10px] uppercase tracking-wider text-text-muted/60"
+                              title="A conta foi removida; o nome ficou preservado no log."
+                            >
+                              (conta removida)
+                            </span>
+                          )}
+                        </span>
+                      ) : (
+                        <span className="italic text-text-muted">sistema</span>
+                      )}
+                    </td>
+                    <td className="whitespace-nowrap px-4 py-3">
+                      {log.targetType ? (
+                        <span className="inline-flex items-center gap-1.5">
+                          <span className="rounded border border-cyan/15 bg-navy px-1.5 py-0.5 text-[11px] font-semibold text-text-muted">
+                            {log.targetType}
+                          </span>
+                          {log.targetId && (
+                            <span className="font-mono text-[11px] text-text-muted/70" title={log.targetId}>
+                              #{log.targetId.slice(0, 8)}
+                            </span>
+                          )}
+                        </span>
+                      ) : (
+                        <span className="text-text-muted/50">—</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      <Detalhes metadata={log.metadata} />
+                    </td>
+                    <td className="whitespace-nowrap px-4 py-3">
+                      {log.ip || log.userAgent ? (
+                        <span
+                          className={`text-text-muted ${log.userAgent ? 'cursor-help underline decoration-dotted underline-offset-4' : ''}`}
+                          title={log.userAgent ?? undefined}
+                        >
+                          {log.ip ?? '—'}
+                        </span>
+                      ) : (
+                        <span className="text-text-muted/50">—</span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>
@@ -169,13 +361,36 @@ export default async function AuditoriaPage({ searchParams }: PageProps) {
 
       {/* Paginação */}
       {totalPages > 1 && (
-        <div className="mt-5 flex items-center justify-between gap-4">
+        <div className="mt-5 flex flex-wrap items-center justify-between gap-4">
           <PaginacaoLink href={queryComPagina(paginaAtual - 1)} desabilitado={paginaAtual <= 1}>
             ← Anterior
           </PaginacaoLink>
-          <span className="text-xs text-text-muted">
-            Página {paginaAtual} de {totalPages}
-          </span>
+
+          <div className="flex items-center gap-1.5">
+            {paginasVisiveis(paginaAtual, totalPages).map((p, i) =>
+              p === '…' ? (
+                <span key={`gap-${i}`} className="px-1 text-xs text-text-muted/50">
+                  …
+                </span>
+              ) : p === paginaAtual ? (
+                <span
+                  key={p}
+                  className="rounded-lg border border-purple-light/50 bg-purple-dim px-3 py-1.5 text-xs font-bold text-purple-light"
+                >
+                  {p}
+                </span>
+              ) : (
+                <Link
+                  key={p}
+                  href={queryComPagina(p)}
+                  className="rounded-lg border border-input-border bg-input-bg px-3 py-1.5 text-xs font-bold text-text-muted transition-colors hover:border-purple-light/40 hover:text-text-main"
+                >
+                  {p}
+                </Link>
+              )
+            )}
+          </div>
+
           <PaginacaoLink href={queryComPagina(paginaAtual + 1)} desabilitado={paginaAtual >= totalPages}>
             Próxima →
           </PaginacaoLink>
@@ -204,7 +419,7 @@ function PaginacaoLink({
   return (
     <Link
       href={href}
-      className="rounded-lg border border-cyan/20 px-4 py-2 text-xs font-bold uppercase tracking-wide text-text-main transition-colors hover:border-cyan/50 hover:bg-navy-light"
+      className="rounded-lg border border-purple-light/20 px-4 py-2 text-xs font-bold uppercase tracking-wide text-text-main transition-colors hover:border-purple-light/50 hover:bg-navy-light"
     >
       {children}
     </Link>

@@ -1,13 +1,16 @@
 /**
  * Iluminação de fundo (estilo vinheta) das páginas de listagem.
  * Reproduz as "orbes" borradas da home, na cor da persona:
- * ciano (jogador) ou rosa (equipe). Fica atrás do conteúdo.
+ * ciano (jogador), rosa (equipe) ou roxo (admin). Fica atrás do conteúdo.
  */
-export function PageGlow({ accent }: { accent: 'cyan' | 'pink' }) {
-  const isPink = accent === 'pink';
-  const orb1 = isPink ? 'bg-pink-subtle/15' : 'bg-cyan/15';
-  const orb2 = isPink ? 'bg-pink-subtle/10' : 'bg-cyan/10';
-  const orb3 = isPink ? 'bg-pink-subtle/5' : 'bg-cyan/5';
+const ORBES: Record<'cyan' | 'pink' | 'purple', [string, string, string]> = {
+  cyan: ['bg-cyan/15', 'bg-cyan/10', 'bg-cyan/5'],
+  pink: ['bg-pink-subtle/15', 'bg-pink-subtle/10', 'bg-pink-subtle/5'],
+  purple: ['bg-purple-light/15', 'bg-purple-light/10', 'bg-purple-light/5'],
+};
+
+export function PageGlow({ accent }: { accent: 'cyan' | 'pink' | 'purple' }) {
+  const [orb1, orb2, orb3] = ORBES[accent];
 
   return (
     <div aria-hidden className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">

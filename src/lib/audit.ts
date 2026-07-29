@@ -28,6 +28,7 @@ export const AuditAction = {
   FREEAGENT_CREATE: 'freeagent.create',
   FREEAGENT_DELETE: 'freeagent.delete',
   CANDIDATURA_CREATE: 'candidatura.create',
+  CANDIDATURA_INVITE: 'candidatura.invite',
   CANDIDATURA_ACCEPT: 'candidatura.accept',
   CANDIDATURA_REJECT: 'candidatura.reject',
 } as const;
@@ -149,4 +150,14 @@ export async function listAuditActions(): Promise<string[]> {
     orderBy: { action: 'asc' },
   });
   return rows.map((r) => r.action);
+}
+
+/** Ações já registradas com o total de eventos de cada uma (chips do filtro admin). */
+export async function listAuditActionCounts(): Promise<{ action: string; total: number }[]> {
+  const rows = await prisma.auditLog.groupBy({
+    by: ['action'],
+    _count: { _all: true },
+    orderBy: { action: 'asc' },
+  });
+  return rows.map((r) => ({ action: r.action, total: r._count._all }));
 }

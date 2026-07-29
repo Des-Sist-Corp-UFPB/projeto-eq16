@@ -5,6 +5,7 @@ import { EquipeData, Lane } from '@/types';
 import { EquipeInfoResume } from '@/components/EquipeInfoResume';
 import { LaneFilter } from '@/components/LaneFilter';
 import { PageGlow } from '@/components/PageGlow';
+import { RecomendacoesEquipes } from '@/components/Recomendacoes';
 
 export default function EquipesPage() {
   const [equipes, setEquipes] = useState<EquipeData[]>([]);
@@ -46,6 +47,9 @@ export default function EquipesPage() {
         <h1 className="font-display text-2xl font-extrabold uppercase tracking-[-0.02em] text-text-main sm:text-3xl">Equipes com vagas</h1>
         <p className="mt-2 text-sm text-text-muted font-light">Veja times procurando jogadores e entre em contato com o capitão.</p>
       </div>
+
+      {/* Equipes com vaga na rota do free agent do usuário (some se não se aplica). */}
+      <RecomendacoesEquipes />
 
       {!carregando && equipes.length > 0 && (
         <LaneFilter selected={rotasFiltro} onToggle={toggleRota} onClear={() => setRotasFiltro([])} accent="pink" />
