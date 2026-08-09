@@ -3,7 +3,13 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { authOptions } from '@/lib/auth';
 import { listAuditLogs, listAuditActionCounts } from '@/lib/audit';
+import { mascararIp, resumirUserAgent } from '@/lib/mascarar';
 import { PageGlow } from '@/components/PageGlow';
+import {
+  OrigemProvider,
+  OrigemToggleGlobal,
+  OrigemCelula,
+} from '@/components/admin/OrigemAuditoria';
 
 export const dynamic = 'force-dynamic';
 
@@ -193,7 +199,8 @@ export default async function AuditoriaPage({ searchParams }: PageProps) {
           Log de Auditoria
         </h1>
         <p className="mt-2 text-sm font-light text-text-muted">
-          Trilha imutável de ações sensíveis: quem fez o quê, quando e de onde.
+          Trilha imutável de ações sensíveis: quem fez o quê, quando e de onde. IP e dispositivo
+          são dado pessoal e ficam censurados por padrão — use o olho para revelar.
         </p>
       </div>
 
@@ -255,7 +262,8 @@ export default async function AuditoriaPage({ searchParams }: PageProps) {
         </div>
       </div>
 
-      {/* Tabela */}
+      {/* Tabela — o provider controla o "revelar tudo" da coluna Origem. */}
+      <OrigemProvider>
       <div className="overflow-x-auto rounded-xl border border-purple-light/10 bg-navy-light">
         <table className="w-full min-w-[760px] border-collapse text-left text-sm">
           <thead>
@@ -265,7 +273,12 @@ export default async function AuditoriaPage({ searchParams }: PageProps) {
               <th className="px-4 py-3 font-bold">Ator</th>
               <th className="px-4 py-3 font-bold">Alvo</th>
               <th className="px-4 py-3 font-bold">Detalhes</th>
-              <th className="px-4 py-3 font-bold">Origem</th>
+              <th className="px-4 py-3 font-bold">
+                <span className="inline-flex items-center gap-2">
+                  Origem
+                  <OrigemToggleGlobal />
+                </span>
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -339,17 +352,13 @@ export default async function AuditoriaPage({ searchParams }: PageProps) {
                     <td className="px-4 py-3">
                       <Detalhes metadata={log.metadata} />
                     </td>
-                    <td className="whitespace-nowrap px-4 py-3">
-                      {log.ip || log.userAgent ? (
-                        <span
-                          className={`text-text-muted ${log.userAgent ? 'cursor-help underline decoration-dotted underline-offset-4' : ''}`}
-                          title={log.userAgent ?? undefined}
-                        >
-                          {log.ip ?? '—'}
-                        </span>
-                      ) : (
-                        <span className="text-text-muted/50">—</span>
-                      )}
+                    <td className="px-4 py-3">
+                      <OrigemCelula
+                        ip={log.ip}
+                        ipMascarado={mascararIp(log.ip)}
+                        userAgent={log.userAgent}
+                        userAgentResumo={resumirUserAgent(log.userAgent)}
+                      />
                     </td>
                   </tr>
                 );
@@ -358,6 +367,7 @@ export default async function AuditoriaPage({ searchParams }: PageProps) {
           </tbody>
         </table>
       </div>
+      </OrigemProvider>
 
       {/* Paginação */}
       {totalPages > 1 && (

@@ -25,39 +25,48 @@ async function gerarUsernameUnico(base: string): Promise<string> {
 }
 
 /**
- * Cache em memória (TTL curto) do vínculo do Discord por usuário.
+ * Cache em memória (TTL curto) dos dados do usuário que o token espelha:
+ * papel (role) e vínculo do Discord.
  *
- * Sem ele, todo usuário SEM Discord vinculado dispara uma query no banco em
- * CADA requisição autenticada: o token guarda `discordId: null`, a condição
- * "token ainda não tem discordId" fica sempre verdadeira e a recarga roda de
- * novo (a mutação do token não é persistida no cookie em leituras).
- * Com o cache, a autocorreção de sessões defasadas continua (em até 60s),
- * mas o custo cai de 1 query/requisição para 1 query/minuto por usuário.
- * Login e `update()` continuam forçando leitura fresca do banco.
+ * Sem ele, cada requisição autenticada custaria uma query no banco. Com o
+ * cache, sessões defasadas continuam se autocorrigindo (em até 60s) mas o
+ * custo cai para 1 query/minuto por usuário. Login e `update()` continuam
+ * forçando leitura fresca.
+ *
+ * O papel PRECISA ser relido: o JWT é assinado no login e vale por semanas —
+ * sem recarga, um admin rebaixado (ou uma conta removida) continuaria com
+ * `role: 'ADMIN'` no token e passaria por todas as checagens administrativas
+ * até o token expirar. `existe: false` derruba o papel para USER.
  */
-const VINCULO_TTL_MS = 60_000;
-const VINCULO_CACHE_MAX = 5_000;
-const vinculoCache = new Map<
-  string,
-  { discordId: string | null; discordUsername: string | null; expira: number }
->();
+const USUARIO_TTL_MS = 60_000;
+const USUARIO_CACHE_MAX = 5_000;
+interface DadosUsuario {
+  existe: boolean;
+  role: string;
+  discordId: string | null;
+  discordUsername: string | null;
+  expira: number;
+}
+const usuarioCache = new Map<string, DadosUsuario>();
 
-async function carregarVinculoDiscord(userId: string, forcarLeitura: boolean) {
+async function carregarDadosUsuario(userId: string, forcarLeitura: boolean): Promise<DadosUsuario> {
   const agora = Date.now();
-  const cacheado = vinculoCache.get(userId);
+  const cacheado = usuarioCache.get(userId);
   if (!forcarLeitura && cacheado && cacheado.expira > agora) return cacheado;
 
   const dbUser = await prisma.user.findUnique({
     where: { id: userId },
-    select: { discordId: true, discordUsername: true },
+    select: { role: true, discordId: true, discordUsername: true },
   });
-  const valor = {
+  const valor: DadosUsuario = {
+    existe: !!dbUser,
+    role: dbUser?.role ?? 'USER',
     discordId: dbUser?.discordId ?? null,
     discordUsername: dbUser?.discordUsername ?? null,
-    expira: agora + VINCULO_TTL_MS,
+    expira: agora + USUARIO_TTL_MS,
   };
-  if (vinculoCache.size >= VINCULO_CACHE_MAX) vinculoCache.clear();
-  vinculoCache.set(userId, valor);
+  if (usuarioCache.size >= USUARIO_CACHE_MAX) usuarioCache.clear();
+  usuarioCache.set(userId, valor);
   return valor;
 }
 
@@ -162,16 +171,17 @@ export const authOptions: NextAuthOptions = {
         token.role = dbUser.role;
       }
 
-      // (Re)carrega o vínculo do Discord: no login, no login-Discord, no update()
-      // e enquanto o token não tem discordId — assim sessões defasadas (ex.: vínculo
-      // feito sem passar por update()) se autocorrigem sem relogar. A leitura passa
-      // pelo cache com TTL (ver carregarVinculoDiscord) para não custar 1 query por
-      // requisição; login/update() forçam leitura fresca.
-      if (token.id && (user || account?.provider === 'discord' || trigger === 'update' || !token.discordId)) {
+      // (Re)carrega papel e vínculo do Discord a cada requisição autenticada, pelo
+      // cache com TTL (ver carregarDadosUsuario): sessões defasadas se autocorrigem
+      // em até 60s sem relogar — vale tanto para um vínculo novo do Discord quanto,
+      // sobretudo, para uma promoção/rebaixamento de papel ou conta removida.
+      // Login e update() forçam leitura fresca do banco.
+      if (token.id) {
         const forcarLeitura = !!(user || account?.provider === 'discord' || trigger === 'update');
-        const vinculo = await carregarVinculoDiscord(token.id as string, forcarLeitura);
-        token.discordId = vinculo.discordId;
-        token.discordUsername = vinculo.discordUsername;
+        const dados = await carregarDadosUsuario(token.id as string, forcarLeitura);
+        token.role = dados.role;
+        token.discordId = dados.discordId;
+        token.discordUsername = dados.discordUsername;
       }
 
       // Auditoria de login: apenas na entrada inicial (quando há `user`/`account`),

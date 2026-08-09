@@ -87,6 +87,8 @@ export function requestMeta(req: Request): { ip: string | null; userAgent: strin
 // ─── Consulta (área administrativa) ──────────────────────────────────────────
 
 export const AUDIT_PAGE_SIZE = 50;
+/** Teto do `pageSize`: impede que um parâmetro solto vire um dump da trilha inteira. */
+export const AUDIT_MAX_PAGE_SIZE = 200;
 
 export interface AuditLogQuery {
   page?: number;
@@ -114,8 +116,11 @@ const AUDIT_LIST_SELECT = {
 
 /** Lista paginada de logs (mais recentes primeiro). Usada pela API e pela página admin. */
 export async function listAuditLogs(query: AuditLogQuery = {}) {
-  const pageSize = query.pageSize ?? AUDIT_PAGE_SIZE;
-  const page = Math.max(1, query.page ?? 1);
+  const pageSize = Math.min(
+    AUDIT_MAX_PAGE_SIZE,
+    Math.max(1, Math.trunc(query.pageSize ?? AUDIT_PAGE_SIZE) || AUDIT_PAGE_SIZE)
+  );
+  const page = Math.max(1, Math.trunc(query.page ?? 1) || 1);
 
   const where: Prisma.AuditLogWhereInput = {
     ...(query.action ? { action: query.action } : {}),
