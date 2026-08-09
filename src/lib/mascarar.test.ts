@@ -1,5 +1,13 @@
 import { describe, it, expect } from 'vitest';
-import { mascararIp, resumirUserAgent } from '@/lib/mascarar';
+import {
+  mascararIp,
+  resumirUserAgent,
+  ehChaveSensivel,
+  ehChaveSegredo,
+  redigirMetadata,
+  VALOR_CENSURADO,
+  VALOR_REMOVIDO,
+} from '@/lib/mascarar';
 
 describe('mascararIp', () => {
   it('mantém só a rede em IPv4', () => {
@@ -57,5 +65,92 @@ describe('resumirUserAgent', () => {
     expect(resumirUserAgent(null)).toBeNull();
     expect(resumirUserAgent('')).toBeNull();
     expect(resumirUserAgent('  ')).toBeNull();
+  });
+});
+
+describe('ehChaveSensivel / ehChaveSegredo', () => {
+  it('reconhece dado pessoal independente da grafia da chave', () => {
+    for (const k of ['discordId', 'discord_id', 'DISCORD-ID', 'discordUsername', 'email', 'cpf']) {
+      expect(ehChaveSensivel(k), k).toBe(true);
+    }
+  });
+
+  it('não confunde chaves de negócio com dado pessoal', () => {
+    // "equipeId" contém "ip" — o casamento é por chave inteira, não substring.
+    for (const k of ['equipeId', 'equipeNome', 'lane', 'nome', 'status', 'porAdmin', 'via']) {
+      expect(ehChaveSensivel(k), k).toBe(false);
+      expect(ehChaveSegredo(k), k).toBe(false);
+    }
+  });
+
+  it('reconhece segredo por fragmento em qualquer posição', () => {
+    for (const k of ['accessToken', 'refresh_token', 'senhaNova', 'passwordHash', 'apiKey']) {
+      expect(ehChaveSegredo(k), k).toBe(true);
+    }
+  });
+});
+
+describe('redigirMetadata', () => {
+  // O caso real da trilha: metadata de discord.link / discord.unlink.
+  const vinculo = { discordId: '123456789012345678', discordUsername: 'fulano#0' };
+
+  it('censura dado pessoal no estado padrão e o devolve na versão revelável', () => {
+    const { censurado, revelavel, temSensivel } = redigirMetadata(vinculo);
+    expect(temSensivel).toBe(true);
+    expect(censurado).toEqual({
+      discordId: VALOR_CENSURADO,
+      discordUsername: VALOR_CENSURADO,
+    });
+    expect(revelavel).toEqual(vinculo);
+  });
+
+  it('preserva os campos de negócio nas duas versões', () => {
+    const meta = { equipeId: 'e1', equipeNome: 'Time X', lane: 'MID', ...vinculo };
+    const { censurado, revelavel } = redigirMetadata(meta);
+    for (const versao of [censurado, revelavel] as Record<string, unknown>[]) {
+      expect(versao.equipeId).toBe('e1');
+      expect(versao.equipeNome).toBe('Time X');
+      expect(versao.lane).toBe('MID');
+    }
+  });
+
+  it('remove segredos das DUAS versões — nem o olho revela', () => {
+    const { censurado, revelavel, temSensivel } = redigirMetadata({
+      accessToken: 'abc123',
+      nome: 'Time X',
+    });
+    expect(censurado).toEqual({ accessToken: VALOR_REMOVIDO, nome: 'Time X' });
+    expect(revelavel).toEqual({ accessToken: VALOR_REMOVIDO, nome: 'Time X' });
+    // Segredo não é "revelável", então sozinho não acende o olho.
+    expect(temSensivel).toBe(false);
+  });
+
+  it('censura em profundidade, dentro de objetos e arrays', () => {
+    const { censurado } = redigirMetadata({
+      convidados: [{ discordId: 'a1' }, { discordId: 'b2' }],
+      aninhado: { interno: { email: 'x@y.z' } },
+    });
+    expect(JSON.stringify(censurado)).not.toContain('a1');
+    expect(JSON.stringify(censurado)).not.toContain('b2');
+    expect(JSON.stringify(censurado)).not.toContain('x@y.z');
+  });
+
+  it('não marca temSensivel quando o valor sensível é nulo', () => {
+    const { censurado, temSensivel } = redigirMetadata({ discordId: null, nome: 'X' });
+    expect(temSensivel).toBe(false);
+    expect(censurado).toEqual({ discordId: null, nome: 'X' });
+  });
+
+  it('atravessa metadata sem nada sensível sem alterar nada', () => {
+    const meta = { nome: 'Time X', vagasLanes: ['TOP', 'MID'], porAdmin: false };
+    const { censurado, revelavel, temSensivel } = redigirMetadata(meta);
+    expect(temSensivel).toBe(false);
+    expect(censurado).toEqual(meta);
+    expect(revelavel).toEqual(meta);
+  });
+
+  it('lida com metadata nulo ou primitivo', () => {
+    expect(redigirMetadata(null).censurado).toBeNull();
+    expect(redigirMetadata('texto').censurado).toBe('texto');
   });
 });
