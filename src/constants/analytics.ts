@@ -15,9 +15,9 @@
 /** Endereço do tracker no painel da disciplina. */
 export const UMAMI_SCRIPT_URL = 'https://umami.dsc.rodrigor.com/script.js';
 
-// ⚠️ Cole aqui o `data-website-id` que aparece no painel (formato UUID).
-// Enquanto estiver vazio, nenhum script é carregado e nada é enviado.
-const ID_NO_PAINEL = '';
+// `data-website-id` do painel (conta dsc-eq16). Se estiver vazio, nenhum
+// script é carregado e nada é enviado.
+const ID_NO_PAINEL = '5bb89046-e8c6-4446-8869-512cbaef3664';
 
 /** Id do site no Umami. Pode ser sobrescrito no build por NEXT_PUBLIC_UMAMI_WEBSITE_ID. */
 export const UMAMI_WEBSITE_ID = process.env.NEXT_PUBLIC_UMAMI_WEBSITE_ID ?? ID_NO_PAINEL;
