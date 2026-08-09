@@ -3,7 +3,14 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { authOptions } from '@/lib/auth';
 import { listAuditLogs, listAuditActionCounts } from '@/lib/audit';
+import { mascararIp, resumirUserAgent, redigirMetadata } from '@/lib/mascarar';
 import { PageGlow } from '@/components/PageGlow';
+import {
+  CensuraProvider,
+  CensuraToggleGlobal,
+  OrigemCelula,
+  DetalhesCelula,
+} from '@/components/admin/CensuraAuditoria';
 
 export const dynamic = 'force-dynamic';
 
@@ -102,51 +109,6 @@ function paginasVisiveis(atual: number, total: number): (number | '…')[] {
   return saida;
 }
 
-/** Metadata do log: chips para valores simples + JSON completo sob demanda. */
-function Detalhes({ metadata }: { metadata: unknown }) {
-  if (metadata == null) return <span className="text-text-muted/50">—</span>;
-
-  const objeto =
-    typeof metadata === 'object' && !Array.isArray(metadata)
-      ? (metadata as Record<string, unknown>)
-      : null;
-  const simples = objeto
-    ? Object.entries(objeto).filter(
-        ([, v]) => v === null || ['string', 'number', 'boolean'].includes(typeof v)
-      )
-    : [];
-  const visiveis = simples.slice(0, 3);
-  const ocultos = objeto ? Object.keys(objeto).length - visiveis.length : 0;
-
-  return (
-    <div className="max-w-[300px]">
-      {visiveis.length > 0 && (
-        <div className="flex flex-wrap gap-1">
-          {visiveis.map(([chave, valor]) => (
-            <span
-              key={chave}
-              className="inline-flex max-w-full items-baseline gap-1 rounded border border-cyan/10 bg-navy px-1.5 py-0.5 text-[11px]"
-            >
-              <span className="shrink-0 text-text-muted">{chave}:</span>
-              <span className="truncate text-text-main">{String(valor ?? '—')}</span>
-            </span>
-          ))}
-          {ocultos > 0 && <span className="px-1 text-[11px] text-text-muted">+{ocultos}</span>}
-        </div>
-      )}
-      <details className="group mt-1">
-        <summary className="cursor-pointer list-none text-[11px] font-semibold uppercase tracking-wider text-text-muted/70 transition-colors hover:text-cyan">
-          <span className="group-open:hidden">ver JSON ▾</span>
-          <span className="hidden group-open:inline">ocultar ▴</span>
-        </summary>
-        <pre className="mt-1 max-h-48 overflow-auto whitespace-pre-wrap break-words rounded-lg border border-cyan/10 bg-navy px-2 py-1.5 text-[11px] leading-relaxed text-text-muted">
-          {JSON.stringify(metadata, null, 2)}
-        </pre>
-      </details>
-    </div>
-  );
-}
-
 interface PageProps {
   searchParams: Promise<{ page?: string; action?: string }>;
 }
@@ -193,7 +155,8 @@ export default async function AuditoriaPage({ searchParams }: PageProps) {
           Log de Auditoria
         </h1>
         <p className="mt-2 text-sm font-light text-text-muted">
-          Trilha imutável de ações sensíveis: quem fez o quê, quando e de onde.
+          Trilha imutável de ações sensíveis: quem fez o quê, quando e de onde. Os dados pessoais
+          ficam censurados por padrão — use o olho para revelar.
         </p>
       </div>
 
@@ -255,7 +218,9 @@ export default async function AuditoriaPage({ searchParams }: PageProps) {
         </div>
       </div>
 
-      {/* Tabela */}
+      {/* Tabela — o provider controla o "revelar tudo" dos dados pessoais. */}
+      <CensuraProvider>
+      <CensuraToggleGlobal />
       <div className="overflow-x-auto rounded-xl border border-purple-light/10 bg-navy-light">
         <table className="w-full min-w-[760px] border-collapse text-left text-sm">
           <thead>
@@ -283,6 +248,7 @@ export default async function AuditoriaPage({ searchParams }: PageProps) {
             ) : (
               logs.map((log) => {
                 const nomeAtor = log.actor?.username ?? log.actorLabel;
+                const { revelavel, censurado, temSensivel } = redigirMetadata(log.metadata);
                 return (
                   <tr
                     key={log.id}
@@ -337,19 +303,19 @@ export default async function AuditoriaPage({ searchParams }: PageProps) {
                       )}
                     </td>
                     <td className="px-4 py-3">
-                      <Detalhes metadata={log.metadata} />
+                      <DetalhesCelula
+                        metadata={revelavel}
+                        metadataCensurado={censurado}
+                        temSensivel={temSensivel}
+                      />
                     </td>
-                    <td className="whitespace-nowrap px-4 py-3">
-                      {log.ip || log.userAgent ? (
-                        <span
-                          className={`text-text-muted ${log.userAgent ? 'cursor-help underline decoration-dotted underline-offset-4' : ''}`}
-                          title={log.userAgent ?? undefined}
-                        >
-                          {log.ip ?? '—'}
-                        </span>
-                      ) : (
-                        <span className="text-text-muted/50">—</span>
-                      )}
+                    <td className="px-4 py-3">
+                      <OrigemCelula
+                        ip={log.ip}
+                        ipMascarado={mascararIp(log.ip)}
+                        userAgent={log.userAgent}
+                        userAgentResumo={resumirUserAgent(log.userAgent)}
+                      />
                     </td>
                   </tr>
                 );
@@ -358,6 +324,7 @@ export default async function AuditoriaPage({ searchParams }: PageProps) {
           </tbody>
         </table>
       </div>
+      </CensuraProvider>
 
       {/* Paginação */}
       {totalPages > 1 && (

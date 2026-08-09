@@ -12,3 +12,24 @@ export async function getSessionOrUnauthorized() {
   }
   return { session, error: null };
 }
+
+/**
+ * Guarda das rotas administrativas: exige sessão **e** papel ADMIN.
+ *
+ * É a checagem que vale — o `proxy.ts` faz só uma triagem otimista na borda
+ * (barata, mas baseada no cookie), enquanto aqui a sessão é validada de fato.
+ * Toda rota sob `/api/admin` deve começar por este helper.
+ */
+export async function requireAdmin() {
+  const { session, error } = await getSessionOrUnauthorized();
+  if (error) return { session: null, error };
+
+  if (session!.user.role !== 'ADMIN') {
+    return {
+      session: null,
+      error: NextResponse.json({ erro: 'Acesso restrito a administradores.' }, { status: 403 }),
+    };
+  }
+
+  return { session, error: null };
+}

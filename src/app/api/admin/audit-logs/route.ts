@@ -1,16 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSessionOrUnauthorized } from '@/lib/apiAuth';
+import { requireAdmin } from '@/lib/apiAuth';
 import { listAuditLogs } from '@/lib/audit';
+
+// A trilha de auditoria não pode ser cacheada em nenhuma camada: é dado
+// sensível e específico do admin autenticado.
+export const dynamic = 'force-dynamic';
 
 // GET /api/admin/audit-logs?page=&action=&actorId= — somente ADMIN.
 // Lista paginada da trilha de auditoria (mais recentes primeiro).
 export async function GET(req: NextRequest) {
-  const { session, error } = await getSessionOrUnauthorized();
+  const { error } = await requireAdmin();
   if (error) return error;
-
-  if (session!.user.role !== 'ADMIN') {
-    return NextResponse.json({ erro: 'Acesso restrito a administradores.' }, { status: 403 });
-  }
 
   const params = req.nextUrl.searchParams;
   const result = await listAuditLogs({
@@ -19,5 +19,7 @@ export async function GET(req: NextRequest) {
     actorId: params.get('actorId') ?? undefined,
   });
 
-  return NextResponse.json(result);
+  return NextResponse.json(result, {
+    headers: { 'Cache-Control': 'no-store, private' },
+  });
 }
