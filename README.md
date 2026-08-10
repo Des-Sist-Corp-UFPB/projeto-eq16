@@ -6,6 +6,16 @@ Aplicação web full-stack para conectar jogadores (Free Agents) e equipes da co
 
 ---
 
+## 🎥 Vídeo de Apresentação
+
+Uma apresentação do projeto em vídeo, no YouTube — visão geral da plataforma e demonstração das principais funcionalidades em funcionamento:
+
+**▶️ [Assistir no YouTube](https://youtu.be/GD7nd-uqsgs)**
+
+> Boa porta de entrada para quem está chegando agora: dá para ver o sistema rodando antes de subir o ambiente local (ver [Como Rodar Localmente](#-como-rodar-localmente)).
+
+---
+
 ## 📖 Sobre o Projeto
 
 O **Rinha Team Finder** é uma plataforma onde jogadores anunciam que estão disponíveis e equipes anunciam suas vagas em aberto — cada um encontra o outro pelas **rotas (lanes)** que precisa. O contato final é feito pelo **Discord** da comunidade.
